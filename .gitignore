@@ -1,0 +1,9 @@
+.idea/
+/.shelf/
+GarconZIO.ipr
+GarconZIO.iws
+/general ideas.txt
+
+target/
+/logs/
+private/
