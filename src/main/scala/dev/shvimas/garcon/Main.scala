@@ -163,7 +163,7 @@ object Main extends App with LazyLogging {
               ZIO.accessM[Database](_.setTranslator(chatId, Defaults.translatorName)) &> namedDefaultTranslator
           }
         case None =>
-          ZIO.access[Database](_.setUserData(Defaults.userData(chatId))) &> namedDefaultTranslator
+          ZIO.accessM[Database](_.setUserData(Defaults.userData(chatId))) &> namedDefaultTranslator
       }
   }
 

@@ -95,6 +95,11 @@ class MainTest extends ZioFunSuite {
       1488 -> ru_en -> Map("девять" -> CommonTranslation("девять", Some("nine"), None)),
       666 -> ru_en -> Map("семь" -> CommonTranslation("семь", None, Some("seven"))),
     )
+    val expectedNewUserData: Map[Int, UserData] = Map(
+      1488 -> UserData(1488, None, Some(CommonTranslationFields.abbyy)),
+      777 -> UserData(777, Some(en_ru), Some(CommonTranslationFields.abbyy)),
+      101 -> UserData(101, Some(en_ru), Some(CommonTranslationFields.abbyy)),
+    )
 
     Main.main
       .provide(testEnvironment)
@@ -120,6 +125,8 @@ class MainTest extends ZioFunSuite {
         assert(previousTranslations.forall(x => savedTranslations.contains(x._1)))
 
         assertResult(previousTranslations ++ expectedNewTranslations)(savedTranslations)
+
+        assertResult(initialUserData ++ expectedNewUserData)(userData)
       }
 
   }
