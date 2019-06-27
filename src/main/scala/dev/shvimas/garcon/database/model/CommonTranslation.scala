@@ -9,8 +9,8 @@ case class CommonTranslation(text: String,
   override val originalText: String = text
 
   override val translatedText: String =
-  // combine?
-    abbyy.orElse(yandex)
+    List(abbyy, yandex)
+      .reduce(combineOpts)
       .getOrElse("<no translation>")
 
   private def combineOpts(firstOpt: Option[String], secondOpt: Option[String]): Option[String] =
@@ -20,11 +20,6 @@ case class CommonTranslation(text: String,
       case (None, Some(_)) => secondOpt
       case (None, None) => None
     }
-
-  def translatorName: String =
-    List(abbyy, yandex)
-      .reduce(combineOpts)
-      .getOrElse("unknown source")
 }
 
 object CommonTranslation {
