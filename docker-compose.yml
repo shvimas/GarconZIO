@@ -17,6 +17,8 @@ services:
       - mongo
     build: target/docker
     container_name: garcon-main
+    ports:
+      - "5005:5005"
 
 volumes:
   mongo-volume:
