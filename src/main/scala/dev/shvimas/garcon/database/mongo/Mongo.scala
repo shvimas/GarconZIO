@@ -171,7 +171,7 @@ object Mongo {
         classOf[MongoGlobals],
         classOf[MongoUserData],
         classOf[MongoCommonTranslation],
-        classOf[LanguageDirection],
+        classOf[MongoLanguageDirection],
         LanguageCodeCodecProvider
       )
 
