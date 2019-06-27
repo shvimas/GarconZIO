@@ -17,5 +17,5 @@ trait Database {
 
   def getUserData(chatId: Int): Task[Option[UserData]]
 
-  def setUserData(userData: UserData): Task[Completed]
+  def setUserData(userData: UserData): Task[UpdateResult]
 }

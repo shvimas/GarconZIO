@@ -4,7 +4,7 @@ import com.mongodb.ConnectionString
 import com.typesafe.scalalogging.StrictLogging
 import dev.shvimas.garcon.MainConfig.config
 import dev.shvimas.garcon.database.Database
-import dev.shvimas.garcon.database.model.{CommonTranslationFields, GlobalsFields, UserData, UserDataFields}
+import dev.shvimas.garcon.database.model._
 import dev.shvimas.garcon.database.mongo.codec.LanguageCodeCodecProvider
 import dev.shvimas.garcon.database.mongo.model._
 import dev.shvimas.garcon.database.response._
@@ -128,12 +128,14 @@ object Mongo {
           .toFutureOption()
       ).map(_.map(_.toUserData))
 
-    override def setUserData(userData: UserData): Task[Completed] =
+    override def setUserData(userData: UserData): Task[UpdateResult] =
       fromFuture(
         usersDataColl
-          .insertOne(MongoUserData(userData))
+          .replaceOne(
+            filter = equal(UserDataFields.chatId, userData.chatId),
+            replacement = MongoUserData(userData))
           .toFuture()
-      ).map(convertCompleted)
+      ).map(convertUpdateResult)
   }
 
   private object Helpers {

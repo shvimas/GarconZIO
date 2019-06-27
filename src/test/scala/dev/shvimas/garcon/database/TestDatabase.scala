@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.StrictLogging
 import dev.shvimas.garcon.database.model.{CommonTranslation, CommonTranslationFields, UserData}
-import dev.shvimas.garcon.database.response.{Completed, UpdateResult}
+import dev.shvimas.garcon.database.response.UpdateResult
 import dev.shvimas.translate.{LanguageDirection, Translation}
 import scalaz.zio.{Task, ZIO}
 
@@ -56,11 +56,22 @@ trait TestDatabase extends Database with StrictLogging {
   override def getUserData(chatId: Int): Task[Option[UserData]] =
     ZIO.effect(userData.get(chatId))
 
-  override def setUserData(userData: UserData): Task[Completed] =
+  override def setUserData(userData: UserData): Task[UpdateResult] =
     ZIO.effect({
+      val (matched, modified) = this.userData.get(userData.chatId) match {
+        case None => 0 -> 0
+        case Some(oldUserData) =>
+          if (oldUserData == userData)
+            1 -> 0
+          else 1 -> 1
+      }
       this.userData(userData.chatId) = userData
-      logger.info(s"Set default user data for chat id: ${userData.chatId}")
-      Completed()
+      logger.info(s"Set user data for chat id: ${userData.chatId}")
+      UpdateResult(
+        wasAcknowledged = true,
+        matchedCount = matched,
+        modifiedCount = modified,
+      )
     })
 
   override def addText(translation: Translation,
