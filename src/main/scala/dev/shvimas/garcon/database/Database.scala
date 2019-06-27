@@ -18,4 +18,6 @@ trait Database {
   def getUserData(chatId: Int): Task[Option[UserData]]
 
   def setUserData(userData: UserData): Task[UpdateResult]
+
+  def setTranslator(chatId: Int, name: String): Task[UpdateResult]
 }

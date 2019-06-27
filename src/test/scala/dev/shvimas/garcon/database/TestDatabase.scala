@@ -74,6 +74,29 @@ trait TestDatabase extends Database with StrictLogging {
       )
     })
 
+  override def setTranslator(chatId: Int, name: String): Task[UpdateResult] =
+    ZIO.effect {
+      val ((matched, modified), replacement) = this.userData.get(chatId) match {
+        case None =>
+          0 -> 0 -> UserData(chatId, None, Some(name))
+        case Some(UserData(_, languageDirection, None)) =>
+          1 -> 0 -> UserData(chatId, languageDirection, Some(name))
+        case Some(UserData(_, languageDirection, Some(oldTranslator))) =>
+          if (oldTranslator == name)
+            1 -> 0 -> UserData(chatId, languageDirection, Some(name))
+          else
+            1 -> 1 -> UserData(chatId, languageDirection, Some(name))
+
+      }
+      this.userData(chatId) = replacement
+      logger.info(s"Set $name as translator to $chatId")
+      UpdateResult(
+        wasAcknowledged = true,
+        matchedCount = matched,
+        modifiedCount = modified,
+      )
+    }
+
   override def addText(translation: Translation,
                        translatorName: String,
                        key: (Int, LanguageDirection),

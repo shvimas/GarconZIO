@@ -63,7 +63,7 @@ class MainTest extends ZioFunSuite {
 
     val initialUserData = Map(
       1337 -> Defaults.userData(1337),
-      1488 -> Defaults.userData(1488),
+      1488 -> UserData(1488, None, None),
       666 -> UserData(666, Some(LanguageDirection.RU_EN), Some(CommonTranslationFields.yandex)),
     )
 

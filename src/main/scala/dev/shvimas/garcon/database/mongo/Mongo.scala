@@ -135,6 +135,15 @@ object Mongo {
             replacement = MongoUserData(userData))
           .toFuture()
       ).map(convertUpdateResult)
+
+    override def setTranslator(chatId: Int, name: String): Task[UpdateResult] =
+      fromFuture(
+        usersDataColl.updateOne(
+          equal(UserDataFields.chatId, chatId),
+          set(UserDataFields.translator, name),
+          upsert
+        ).toFuture()
+      ).map(convertUpdateResult)
   }
 
   private object Helpers {
