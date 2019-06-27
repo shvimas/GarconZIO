@@ -12,6 +12,7 @@ services:
     restart: on-failure
 
   main:
+    image: garconzio/garconzio
     depends_on:
       - mongo
     build: target/docker
