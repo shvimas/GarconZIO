@@ -1,7 +1,7 @@
 package dev.shvimas.translate
 
 import dev.shvimas.translate.LanguageCode.LanguageCode
-import scalaz.zio.{Task, ZIO}
+import scalaz.zio.Task
 
 import scala.util.Try
 
@@ -11,11 +11,13 @@ abstract class Translator {
   protected type LanguageCodeImpl
 
   def translate(text: String, languageDirection: LanguageDirection): Task[Translation] =
-    Task.fromTry {
-      val source = toLanguageCodeImpl(languageDirection.source)
-      val target = toLanguageCodeImpl(languageDirection.target)
-      translateImpl(text, source, target)
-    }
+    Task.fromTry(
+      Try {
+        val source = toLanguageCodeImpl(languageDirection.source)
+        val target = toLanguageCodeImpl(languageDirection.target)
+        translateImpl(text, source, target)
+      }.flatten
+    )
 
   protected def translateImpl(text: String,
                               srcLang: LanguageCodeImpl,
