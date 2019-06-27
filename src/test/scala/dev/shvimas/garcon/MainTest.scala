@@ -103,8 +103,8 @@ class MainTest extends ZioFunSuite {
 
         println("Bot end state:")
         pprint.pprintln(messageCounter)
-        pprint.pprintln(updates)
-        pprint.pprintln(sentMessages)
+        pprint.pprintln(updates.asScala)
+        pprint.pprintln(sentMessages.asScala)
         println()
         println("Database end state:")
         pprint.pprintln(offset)
