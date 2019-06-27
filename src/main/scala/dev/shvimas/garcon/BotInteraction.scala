@@ -16,8 +16,7 @@ object BotInteraction {
           resultsPerUser.map { result: Result => {
             val response: Option[String] = result match {
               case Left((throwable, _)) => Some(throwable.toString) // give small error output
-              case Right(None) => None
-              case Right(Some(maybeTranslationWithInfo)) => Some(maybeTranslationWithInfo._1.translatedText)
+              case Right(maybeTranslationWithInfo) => maybeTranslationWithInfo.map(_._1.translatedText)
             }
             sendMessage(chatId, response)
           }
