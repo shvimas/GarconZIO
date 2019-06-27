@@ -38,9 +38,8 @@ object Mongo {
     protected val usersDataColl: MongoCollection[MongoUserData] =
       garconDb.getCollection(CollName.usersData)
 
-    protected def fromFuture[R, E, A]: Future[A] => Task[A] = { future =>
+    protected def fromFuture[R, E, A](future: => Future[A]): Task[A] =
       ZIO.fromFuture(implicit ec => future)
-    }
 
     def getGlobals: Task[Option[MongoGlobals]] =
       fromFuture(
