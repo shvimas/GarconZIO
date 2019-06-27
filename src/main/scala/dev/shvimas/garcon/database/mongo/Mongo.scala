@@ -125,7 +125,7 @@ object Mongo {
           .find(filter = equal(UserDataFields.chatId, chatId))
           .first()
           .toFutureOption()
-      ).map(_.map(_.toUserData))
+      ).map(convertUserData)
 
     override def setUserData(userData: UserData): Task[UpdateResult] =
       fromFuture(
@@ -147,6 +147,15 @@ object Mongo {
   }
 
   private object Helpers {
+    def convertUserData(maybeUserData: Option[MongoUserData]): Option[UserData] =
+      maybeUserData.map { mongoUserData: MongoUserData =>
+        UserData(
+          chatId = mongoUserData.chatId,
+          languageDirection = mongoUserData.languageDirection,
+          translator = mongoUserData.translator
+        )
+      }
+
     def convertCompleted(mongoCompleted: MongoCompleted): Completed = Completed()
 
     def convertUpdateResult(mongoUpdateResult: MongoUpdateResult): UpdateResult =
