@@ -1,7 +1,5 @@
 package dev.shvimas.garcon
 
-import cats.syntax.show._
-import dev.shvimas.garcon.utils.ExceptionUtils.showThrowable
 import dev.shvimas.garcon.Main.{AllResults, Result}
 import dev.shvimas.telegram.Bot
 import dev.shvimas.telegram.model.Result.SendMessageResult
@@ -17,7 +15,7 @@ object BotInteraction {
         ZIO.collectAll(
           resultsPerUser.map { result: Result => {
             val response: Option[String] = result match {
-              case Left((throwable, _)) => Some(throwable.show)
+              case Left((throwable, _)) => Some(throwable.toString) // give small error output
               case Right(None) => None
               case Right(Some(maybeTranslationWithInfo)) => Some(maybeTranslationWithInfo._1.translatedText)
             }
