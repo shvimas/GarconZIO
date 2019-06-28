@@ -3,11 +3,12 @@ package dev.shvimas.garcon
 import cats.syntax.show._
 import com.typesafe.scalalogging.LazyLogging
 import dev.shvimas.garcon.database.Database
+import dev.shvimas.garcon.database.model.CommonTranslation
 import dev.shvimas.garcon.utils.ExceptionUtils.showThrowable
 import dev.shvimas.telegram._
 import dev.shvimas.telegram.model.{Message, Update}
 import dev.shvimas.telegram.model.Result.{GetUpdatesResult, SendMessageResult}
-import dev.shvimas.translate.{LanguageDirection, Translation, Translator}
+import dev.shvimas.translate.LanguageDirection
 import scalaz.zio.{ZIO, _}
 import scalaz.zio.clock.Clock
 import scalaz.zio.duration._
@@ -18,6 +19,7 @@ object Main extends App with LazyLogging {
   import CommonUtils._
   import DatabaseInteraction._
   import MainConfig._
+  import TranslatorsInteraction._
 
   type GarconEnvironment = Bot with Database with Translators
 
@@ -147,27 +149,7 @@ object Main extends App with LazyLogging {
     }.map(unify)
 
 
-  def resolveTranslator(chatId: Int): ZIO[Database with Translators, Throwable, (String, Translator)] = {
-    val namedDefaultTranslator =
-      ZIO.access[Translators](_.defaultTranslator)
-        .map(Defaults.translatorName -> _)
-
-    ZIO.accessM[Database](_.getUserData(chatId))
-      .flatMap {
-        case Some(userData) =>
-          userData.translator match {
-            case Some(name) =>
-              // throws if invalid name comes
-              ZIO.access[Translators](_.supportedTranslators(name)).map(name -> _)
-            case None =>
-              ZIO.accessM[Database](_.setTranslator(chatId, Defaults.translatorName)) &> namedDefaultTranslator
-          }
-        case None =>
-          ZIO.accessM[Database](_.setUserData(Defaults.userData(chatId))) &> namedDefaultTranslator
-      }
-  }
-
-  type TranslationWithInfo = (Translation, String, LanguageDirection)
+  type TranslationWithInfo = (CommonTranslation, LanguageDirection)
 
   def translate(message: Message): ZIO[Database with Translators, Throwable, Option[TranslationWithInfo]] =
     ZIO.succeed(message.text).flatMap {
@@ -175,10 +157,8 @@ object Main extends App with LazyLogging {
         resolveLangDirection(message.chat.id)
           .map(_.maybeReverse(text))
           .flatMap(languageDirection =>
-            resolveTranslator(message.chat.id)
-              .flatMap { case (name, translator) =>
-                translator.translate(text, languageDirection).map((_, name, languageDirection))
-              }
+            commonTranslation(text, languageDirection)
+              .map(_ -> languageDirection)
           ).map(Some(_))
       case None => ZIO.succeed(None)
     }

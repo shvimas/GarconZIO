@@ -7,6 +7,7 @@ import dev.shvimas.garcon.database.model.{CommonTranslation, CommonTranslationFi
 import dev.shvimas.garcon.telegram.TestBot
 import dev.shvimas.garcon.telegram.TestBot.makeUpdate
 import dev.shvimas.garcon.translate.TestTranslations
+import dev.shvimas.garcon.TestHelpers._
 import dev.shvimas.translate.LanguageDirection
 import dev.shvimas.zio.testing.ZioFunSuite
 
@@ -34,16 +35,16 @@ class MainTest extends ZioFunSuite {
   )
 
   val yandexTranslations: Map[(String, LanguageDirection), String] = Map(
-    "one" -> en_ru -> "один",
-    "two" -> en_ru -> "два",
-    "three" -> en_ru -> "три",
-    "four" -> en_ru -> "четыре",
-    "five" -> en_ru -> "пять",
-    "шесть" -> ru_en -> "six",
-    "семь" -> ru_en -> "seven",
-    "восемь" -> ru_en -> "eight",
-    "девять" -> ru_en -> "nine",
-    "десять" -> ru_en -> "ten",
+    "one" -> en_ru -> "1",
+    "two" -> en_ru -> "2",
+    "three" -> en_ru -> "3",
+    "four" -> en_ru -> "4",
+    "five" -> en_ru -> "5",
+    "шесть" -> ru_en -> "6",
+    "семь" -> ru_en -> "7",
+    "восемь" -> ru_en -> "8",
+    "девять" -> ru_en -> "9",
+    "десять" -> ru_en -> "10",
   )
 
   testZio("respond to many updates") {
@@ -63,8 +64,8 @@ class MainTest extends ZioFunSuite {
 
     val initialUserData = Map(
       1337 -> Defaults.userData(1337),
-      1488 -> UserData(1488, None, None),
-      666 -> UserData(666, Some(LanguageDirection.RU_EN), Some(CommonTranslationFields.yandex)),
+      1488 -> UserData(1488, None),
+      666 -> UserData(666, Some(LanguageDirection.RU_EN)),
     )
 
     def concurrentMap(elems: CommonTranslation*): concurrent.Map[String, CommonTranslation] = {
@@ -73,13 +74,13 @@ class MainTest extends ZioFunSuite {
 
     val previousTranslations = Map(
       1337 -> en_ru -> concurrentMap(
-        CommonTranslation("twelve", Some("двенадцать"), Some("12")),
+        makeCommonTranslation("twelve", Some("двенадцать"), Some("12")),
       ),
       777 -> ru_en -> concurrentMap(
-        CommonTranslation("сто", Some("hundred"), None),
+        makeCommonTranslation("сто", Some("hundred"), None),
       ),
       1337 -> ru_en -> concurrentMap(
-        CommonTranslation("тысяча", None, Some("thousand")),
+        makeCommonTranslation("тысяча", None, Some("1000")),
       ),
     )
 
@@ -90,15 +91,15 @@ class MainTest extends ZioFunSuite {
     val expectedOffset: Long = allUpdates.map(_.updateId).max + 1
     val expectedMessageCounter = allUpdates.length
     val expectedNewTranslations: Map[(Int, LanguageDirection), Map[String, CommonTranslation]] = Map(
-      1488 -> en_ru -> Map("two" -> CommonTranslation("two", Some("два"), None)),
-      777 -> en_ru -> Map("four" -> CommonTranslation("four", Some("четыре"), None)),
-      1488 -> ru_en -> Map("девять" -> CommonTranslation("девять", Some("nine"), None)),
-      666 -> ru_en -> Map("семь" -> CommonTranslation("семь", None, Some("seven"))),
+      1488 -> en_ru -> Map("two" -> makeCommonTranslation("two", Some("два"), Some("2"))),
+      777 -> en_ru -> Map("four" -> makeCommonTranslation("four", Some("четыре"), Some("4"))),
+      1488 -> ru_en -> Map("девять" -> makeCommonTranslation("девять", Some("nine"), Some("9"))),
+      666 -> ru_en -> Map("семь" -> makeCommonTranslation("семь", Some("seven"), Some("7"))),
     )
     val expectedNewUserData: Map[Int, UserData] = Map(
-      1488 -> UserData(1488, None, Some(CommonTranslationFields.abbyy)),
-      777 -> UserData(777, Some(en_ru), Some(CommonTranslationFields.abbyy)),
-      101 -> UserData(101, Some(en_ru), Some(CommonTranslationFields.abbyy)),
+      1488 -> UserData(1488, Some(en_ru)),
+      777 -> UserData(777, Some(en_ru)),
+      101 -> UserData(101, Some(en_ru)),
     )
 
     Main.main

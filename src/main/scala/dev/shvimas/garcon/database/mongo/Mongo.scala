@@ -8,7 +8,7 @@ import dev.shvimas.garcon.database.model._
 import dev.shvimas.garcon.database.mongo.codec.LanguageCodeCodecProvider
 import dev.shvimas.garcon.database.mongo.model._
 import dev.shvimas.garcon.database.response._
-import dev.shvimas.translate.{LanguageDirection, Translation}
+import dev.shvimas.translate.LanguageDirection
 import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
 import org.bson.codecs.configuration.CodecRegistry
 import org.mongodb.scala.{Completed => MongoCompleted, _}
@@ -17,7 +17,7 @@ import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.UpdateOptions
-import org.mongodb.scala.model.Updates.{combine, max, set}
+import org.mongodb.scala.model.Updates.{max, set}
 import org.mongodb.scala.result.{DeleteResult, UpdateResult => MongoUpdateResult}
 import scalaz.zio.{Task, ZIO}
 
@@ -81,19 +81,14 @@ object Mongo {
           .toFutureOption()
       )
 
-    override def addText(translation: Translation,
-                         translatorName: String,
-                         key: (Int, LanguageDirection),
-                        ): Task[UpdateResult] =
+    override def addCommonTranslation(translation: CommonTranslation,
+                                      key: (Int, LanguageDirection),
+                                     ): Task[UpdateResult] =
       fromFuture(
         getWordsColl(key)
-          .updateOne(
+          .replaceOne(
             filter = equal(CommonTranslationFields.text, translation.originalText),
-            update = combine(
-              set(translatorName, translation.translatedText),
-              set(CommonTranslationFields.text, translation.originalText)
-            ),
-            options = upsert
+            replacement = MongoCommonTranslation(translation),
           )
           .toFuture()
       ).map(convertUpdateResult)
@@ -136,11 +131,13 @@ object Mongo {
           .toFuture()
       ).map(convertUpdateResult)
 
-    override def setTranslator(chatId: Int, name: String): Task[UpdateResult] =
+    override def setLanguageDirection(chatId: Int,
+                                      languageDirection: LanguageDirection,
+                                     ): Task[UpdateResult] =
       fromFuture(
         usersDataColl.updateOne(
           equal(UserDataFields.chatId, chatId),
-          set(UserDataFields.translator, name),
+          set(UserDataFields.langDir, languageDirection),
           upsert
         ).toFuture()
       ).map(convertUpdateResult)
@@ -149,11 +146,7 @@ object Mongo {
   private object Helpers {
     def convertUserData(maybeUserData: Option[MongoUserData]): Option[UserData] =
       maybeUserData.map { mongoUserData: MongoUserData =>
-        UserData(
-          chatId = mongoUserData.chatId,
-          languageDirection = mongoUserData.languageDirection,
-          translator = mongoUserData.translator
-        )
+        UserData(chatId = mongoUserData.chatId, languageDirection = mongoUserData.languageDirection)
       }
 
     def convertCompleted(mongoCompleted: MongoCompleted): Completed = Completed()

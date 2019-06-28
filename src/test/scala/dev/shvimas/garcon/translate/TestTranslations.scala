@@ -4,7 +4,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import dev.shvimas.garcon.Translators
 import dev.shvimas.garcon.database.model.CommonTranslationFields
-import dev.shvimas.garcon.translate.TestTranslations.{Translations, newTranslations}
+import dev.shvimas.garcon.translate.TestTranslations.{newTranslations, Translations}
 import dev.shvimas.translate._
 import dev.shvimas.translate.LanguageCode.LanguageCode
 

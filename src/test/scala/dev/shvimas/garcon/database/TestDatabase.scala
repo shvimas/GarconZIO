@@ -4,9 +4,9 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.StrictLogging
-import dev.shvimas.garcon.database.model.{CommonTranslation, CommonTranslationFields, UserData}
+import dev.shvimas.garcon.database.model.{CommonTranslation, UserData}
 import dev.shvimas.garcon.database.response.UpdateResult
-import dev.shvimas.translate.{LanguageDirection, Translation}
+import dev.shvimas.translate.LanguageDirection
 import scalaz.zio.{Task, ZIO}
 
 import scala.collection.concurrent
@@ -74,22 +74,22 @@ trait TestDatabase extends Database with StrictLogging {
       )
     })
 
-  override def setTranslator(chatId: Int, name: String): Task[UpdateResult] =
+  override def setLanguageDirection(chatId: Int, languageDirection: LanguageDirection): Task[UpdateResult] =
     ZIO.effect {
       val ((matched, modified), replacement) = this.userData.get(chatId) match {
         case None =>
-          0 -> 0 -> UserData(chatId, None, Some(name))
-        case Some(UserData(_, languageDirection, None)) =>
-          1 -> 0 -> UserData(chatId, languageDirection, Some(name))
-        case Some(UserData(_, languageDirection, Some(oldTranslator))) =>
-          if (oldTranslator == name)
-            1 -> 0 -> UserData(chatId, languageDirection, Some(name))
+          0 -> 0 -> UserData(chatId, Some(languageDirection))
+        case Some(UserData(_, None)) =>
+          1 -> 0 -> UserData(chatId, Some(languageDirection))
+        case Some(UserData(_, Some(oldLanguageDirection))) =>
+          if (oldLanguageDirection == languageDirection)
+            1 -> 0 -> UserData(chatId, Some(languageDirection))
           else
-            1 -> 1 -> UserData(chatId, languageDirection, Some(name))
+            1 -> 1 -> UserData(chatId, Some(languageDirection))
 
       }
       this.userData(chatId) = replacement
-      logger.info(s"Set $name as translator to $chatId")
+      logger.info(s"Set $languageDirection as translator to $chatId")
       UpdateResult(
         wasAcknowledged = true,
         matchedCount = matched,
@@ -97,55 +97,36 @@ trait TestDatabase extends Database with StrictLogging {
       )
     }
 
-  override def addText(translation: Translation,
-                       translatorName: String,
-                       key: (Int, LanguageDirection),
-                      ): Task[UpdateResult] =
-    ZIO.succeed(CommonTranslation.from(translation, translatorName))
-      .map {
-        case Some(commonTranslation) =>
-          val text = translation.originalText
-          val (matchedCount, modifiedCount) =
-            savedTranslations.get(key) match {
-              case None =>
-                val newColl = new ConcurrentHashMap[String, CommonTranslation].asScala += (text -> commonTranslation)
-                savedTranslations += key -> newColl
-                0 -> 0
-              case Some(existingTranslations) =>
-                existingTranslations.get(text) match {
-                  case None =>
-                    existingTranslations += text -> commonTranslation
-                    0 -> 0
-                  case Some(oldCommonTranslation) =>
-                    val maybeOldTranslatedText: Option[String] =
-                      translatorName match {
-                        case CommonTranslationFields.abbyy => oldCommonTranslation.abbyy
-                        case CommonTranslationFields.yandex => oldCommonTranslation.yandex
-                        case other => throw new RuntimeException(s"Unknown translator: $other")
-                      }
-                    maybeOldTranslatedText match {
-                      case None =>
-                        existingTranslations += text -> commonTranslation
-                        1 -> 1
-                      case Some(oldTranslatedText) =>
-                        if (oldTranslatedText != translation.translatedText) {
-                          existingTranslations += text -> commonTranslation
-                          1 -> 1
-                        } else 1 -> 0
-                    }
-                }
-            }
-          logger.info(s"Added $commonTranslation to $key")
-          UpdateResult(
-            wasAcknowledged = true,
-            matchedCount = matchedCount,
-            modifiedCount = modifiedCount,
-          )
-        case None =>
-          UpdateResult(
-            wasAcknowledged = false,
-            matchedCount = 0,
-            modifiedCount = 0,
-          )
+  override def addCommonTranslation(translation: CommonTranslation,
+                                    key: (Int, LanguageDirection),
+                                   ): Task[UpdateResult] =
+    ZIO.effect {
+        val text = translation.originalText
+        val (matchedCount, modifiedCount) =
+          savedTranslations.get(key) match {
+            case None =>
+              val newColl = new ConcurrentHashMap[String, CommonTranslation].asScala += (text -> translation)
+              savedTranslations += key -> newColl
+              0 -> 0
+            case Some(existingTranslations) =>
+              existingTranslations.get(text) match {
+                case None =>
+                  existingTranslations += text -> translation
+                  0 -> 0
+                case Some(oldCommonTranslation) =>
+                  if (oldCommonTranslation.translations != translation.translations) {
+                    existingTranslations += text -> translation
+                    1 -> 1
+                  } else {
+                    1 -> 0
+                  }
+              }
+          }
+        logger.info(s"Added $translation to $key")
+        UpdateResult(
+          wasAcknowledged = true,
+          matchedCount = matchedCount,
+          modifiedCount = modifiedCount,
+        )
       }
 }

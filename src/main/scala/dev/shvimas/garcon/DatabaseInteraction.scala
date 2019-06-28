@@ -5,6 +5,7 @@ import com.typesafe.scalalogging.StrictLogging
 import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.utils.ExceptionUtils.showThrowable
 import dev.shvimas.garcon.Main.AllResults
+import dev.shvimas.garcon.database.model.UserData
 import dev.shvimas.garcon.database.response.UpdateResult
 import dev.shvimas.telegram.model.Result.GetUpdatesResult
 import dev.shvimas.translate.LanguageDirection
@@ -40,9 +41,13 @@ object DatabaseInteraction extends StrictLogging {
 
   def resolveLangDirection(chatId: Int): ZIO[Database, Throwable, LanguageDirection] =
     ZIO.accessM[Database](_.getUserData(chatId))
-      .map {
-        case Some(userData) => userData.languageDirection.getOrElse(Defaults.languageDirection)
-        case None => Defaults.languageDirection
+      .flatMap {
+        case Some(UserData(_, Some(languageDirection))) =>
+          ZIO.succeed(languageDirection)
+        case Some(UserData(_, None)) =>
+          ZIO.accessM[Database](_.setLanguageDirection(chatId, Defaults.languageDirection)) *> ZIO.succeed(Defaults.languageDirection)
+        case None =>
+          ZIO.accessM[Database](_.setUserData(Defaults.userData(chatId))) *> ZIO.succeed(Defaults.languageDirection)
       }
 
   def saveResults(allResults: AllResults): ZIO[Database, Nothing, Unit] =
@@ -51,19 +56,21 @@ object DatabaseInteraction extends StrictLogging {
         perUserResults.map {
           case Left(_) => ZIO.unit
           case Right(None) => ZIO.unit
-          case Right(Some((translation, name, languageDirection))) =>
-            ZIO.accessM[Database](_.addText(translation, name, chatId -> languageDirection))
-              .map((updateResult: UpdateResult) =>
-                if (!updateResult.wasAcknowledged) {
-                  logger.error(s"Tried to save $translation for $chatId but it was not acknowledged")
-                })
-              .either
-              .map {
-                case Left(throwable) => logger.error(
-                  s"""While saving $translation for $chatId:
-                     |${throwable.show}""".stripMargin)
-                case Right(()) =>
-              }
+          case Right(Some((commonTranslation, languageDirection))) =>
+            if (commonTranslation.isEmpty) ZIO.unit
+            else {
+              ZIO.accessM[Database](_.addCommonTranslation(commonTranslation, chatId -> languageDirection))
+                .map((updateResult: UpdateResult) =>
+                  if (!updateResult.wasAcknowledged) {
+                    logger.error(s"Tried to save $commonTranslation for $chatId but it was not acknowledged")
+                  })
+                .mapError((throwable: Throwable) =>
+                  logger.error(
+                    s"""While saving $commonTranslation for $chatId:
+                       |${throwable.show}""".stripMargin))
+                .either
+                .map(unify)
+            }
         }
       }
     ).map(unify)

@@ -9,9 +9,5 @@ object Defaults {
   val translatorName: String = CommonTranslationFields.abbyy
 
   def userData(chatId: Int): UserData =
-    UserData(
-      chatId = chatId,
-      languageDirection = Some(languageDirection),
-      translator = Some(translatorName)
-    )
+    UserData(chatId = chatId, languageDirection = Some(languageDirection))
 }
