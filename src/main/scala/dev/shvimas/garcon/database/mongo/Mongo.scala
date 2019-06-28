@@ -103,17 +103,6 @@ object Mongo {
           .toFuture()
       )
 
-    def setLangDirection(chatId: Int, langDirection: LanguageDirection): Task[UpdateResult] =
-      fromFuture(
-        usersDataColl
-          .updateOne(
-            filter = equal(UserDataFields.chatId, chatId),
-            update = set(UserDataFields.langDir, MongoLanguageDirection(langDirection)),
-            options = upsert
-          )
-          .toFuture()
-      ).map(convertUpdateResult)
-
     override def getUserData(chatId: Int): Task[Option[UserData]] =
       fromFuture(
         usersDataColl
@@ -137,7 +126,7 @@ object Mongo {
       fromFuture(
         usersDataColl.updateOne(
           equal(UserDataFields.chatId, chatId),
-          set(UserDataFields.langDir, languageDirection),
+          set(UserDataFields.langDir, MongoLanguageDirection(languageDirection)),
           upsert
         ).toFuture()
       ).map(convertUpdateResult)
@@ -146,8 +135,16 @@ object Mongo {
   private object Helpers {
     def convertUserData(maybeUserData: Option[MongoUserData]): Option[UserData] =
       maybeUserData.map { mongoUserData: MongoUserData =>
-        UserData(chatId = mongoUserData.chatId, languageDirection = mongoUserData.languageDirection)
+        UserData(
+          chatId = mongoUserData.chatId,
+          languageDirection = mongoUserData.languageDirection.map(convertLanguageDirection))
       }
+
+    def convertLanguageDirection(mongoLanguageDirection: MongoLanguageDirection): LanguageDirection =
+      LanguageDirection(
+        source = mongoLanguageDirection.source,
+        target = mongoLanguageDirection.target,
+      )
 
     def convertCompleted(mongoCompleted: MongoCompleted): Completed = Completed()
 
