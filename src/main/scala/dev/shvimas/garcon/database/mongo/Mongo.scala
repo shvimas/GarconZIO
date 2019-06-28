@@ -15,8 +15,8 @@ import org.mongodb.scala.{Completed => MongoCompleted, _}
 import org.mongodb.scala.bson.codecs.Macros._
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
+import org.mongodb.scala.model.{ReplaceOptions, UpdateOptions}
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.model.UpdateOptions
 import org.mongodb.scala.model.Updates.{max, set}
 import org.mongodb.scala.result.{DeleteResult, UpdateResult => MongoUpdateResult}
 import scalaz.zio.{Task, ZIO}
@@ -89,6 +89,7 @@ object Mongo {
           .replaceOne(
             filter = equal(CommonTranslationFields.text, translation.originalText),
             replacement = MongoCommonTranslation(translation),
+            repsert,
           )
           .toFuture()
       ).map(convertUpdateResult)
@@ -116,8 +117,9 @@ object Mongo {
         usersDataColl
           .replaceOne(
             filter = equal(UserDataFields.chatId, userData.chatId),
-            replacement = MongoUserData(userData))
-          .toFuture()
+            replacement = MongoUserData(userData),
+            repsert,
+          ).toFuture()
       ).map(convertUpdateResult)
 
     override def setLanguageDirection(chatId: Int,
@@ -189,6 +191,7 @@ object Mongo {
     val emptyBson = BsonDocument()
 
     val upsert: UpdateOptions = new UpdateOptions().upsert(true)
+    val repsert: ReplaceOptions = new ReplaceOptions().upsert(true)
 
     object CollName {
       val globals = "globals"
