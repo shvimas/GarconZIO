@@ -5,8 +5,9 @@ import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.StrictLogging
 import dev.shvimas.garcon.database.model.{CommonTranslation, UserData}
-import dev.shvimas.garcon.database.response.UpdateResult
+import dev.shvimas.garcon.TestHelpers._
 import dev.shvimas.translate.LanguageDirection
+import org.mongodb.scala.result.UpdateResult
 import scalaz.zio.{Task, ZIO}
 
 import scala.collection.concurrent
@@ -43,8 +44,7 @@ trait TestDatabase extends Database with StrictLogging {
           1
         } else 0
 
-      UpdateResult(
-        wasAcknowledged = true,
+      makeUpdateResult(
         matchedCount = matchedCount,
         modifiedCount = modifiedCount,
       )
@@ -67,8 +67,7 @@ trait TestDatabase extends Database with StrictLogging {
       }
       this.userData(userData.chatId) = userData
       logger.info(s"Set user data for chat id: ${userData.chatId}")
-      UpdateResult(
-        wasAcknowledged = true,
+      makeUpdateResult(
         matchedCount = matched,
         modifiedCount = modified,
       )
@@ -90,8 +89,7 @@ trait TestDatabase extends Database with StrictLogging {
       }
       this.userData(chatId) = replacement
       logger.info(s"Set $languageDirection as translator to $chatId")
-      UpdateResult(
-        wasAcknowledged = true,
+      makeUpdateResult(
         matchedCount = matched,
         modifiedCount = modified,
       )
@@ -123,8 +121,7 @@ trait TestDatabase extends Database with StrictLogging {
               }
           }
         logger.info(s"Added $translation to $key")
-        UpdateResult(
-          wasAcknowledged = true,
+        makeUpdateResult(
           matchedCount = matchedCount,
           modifiedCount = modifiedCount,
         )

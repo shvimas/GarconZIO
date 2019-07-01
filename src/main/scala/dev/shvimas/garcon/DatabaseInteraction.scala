@@ -6,9 +6,9 @@ import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.utils.ExceptionUtils.showThrowable
 import dev.shvimas.garcon.Main.AllResults
 import dev.shvimas.garcon.database.model.UserData
-import dev.shvimas.garcon.database.response.UpdateResult
 import dev.shvimas.telegram.model.Result.GetUpdatesResult
 import dev.shvimas.translate.LanguageDirection
+import org.mongodb.scala.result.UpdateResult
 import scalaz.zio.ZIO
 
 object DatabaseInteraction extends StrictLogging {
@@ -28,7 +28,7 @@ object DatabaseInteraction extends StrictLogging {
   private def doOffsetUpdate(maxId: Long): ZIO[Database, (Throwable, Long), Unit] =
     if (maxId >= 0) {
       ZIO.accessM[Database](_.updateOffset(maxId))
-        .map(updateResult => require(updateResult.modifiedCount == 1))
+        .map(updateResult => require(updateResult.getModifiedCount == 1))
         .mapError(err => err -> maxId)
     } else {
       ZIO.unit

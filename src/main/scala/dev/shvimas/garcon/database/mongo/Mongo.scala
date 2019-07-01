@@ -7,18 +7,17 @@ import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.database.model._
 import dev.shvimas.garcon.database.mongo.codec.LanguageCodeCodecProvider
 import dev.shvimas.garcon.database.mongo.model._
-import dev.shvimas.garcon.database.response._
 import dev.shvimas.translate.LanguageDirection
 import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
 import org.bson.codecs.configuration.CodecRegistry
-import org.mongodb.scala.{Completed => MongoCompleted, _}
+import org.mongodb.scala._
 import org.mongodb.scala.bson.codecs.Macros._
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.model.{ReplaceOptions, UpdateOptions}
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Updates.{max, set}
-import org.mongodb.scala.result.{DeleteResult, UpdateResult => MongoUpdateResult}
+import org.mongodb.scala.result.{DeleteResult, UpdateResult}
 import scalaz.zio.{Task, ZIO}
 
 import scala.concurrent.Future
@@ -59,7 +58,7 @@ object Mongo {
             options = upsert
           )
           .toFuture()
-      }).map(convertUpdateResult)
+      })
 
     override def getOffset: Task[Long] =
       getGlobals map {
@@ -92,7 +91,7 @@ object Mongo {
             repsert,
           )
           .toFuture()
-      ).map(convertUpdateResult)
+      )
 
     def deleteText(text: String,
                    langDirection: LanguageDirection,
@@ -120,7 +119,7 @@ object Mongo {
             replacement = MongoUserData(userData),
             repsert,
           ).toFuture()
-      ).map(convertUpdateResult)
+      )
 
     override def setLanguageDirection(chatId: Int,
                                       languageDirection: LanguageDirection,
@@ -131,7 +130,7 @@ object Mongo {
           set(UserDataFields.langDir, MongoLanguageDirection(languageDirection)),
           upsert
         ).toFuture()
-      ).map(convertUpdateResult)
+      )
   }
 
   private object Helpers {
@@ -148,13 +147,6 @@ object Mongo {
         target = mongoLanguageDirection.target,
       )
 
-    def convertCompleted(mongoCompleted: MongoCompleted): Completed = Completed()
-
-    def convertUpdateResult(mongoUpdateResult: MongoUpdateResult): UpdateResult =
-      UpdateResult(
-        wasAcknowledged = mongoUpdateResult.wasAcknowledged,
-        matchedCount = mongoUpdateResult.getMatchedCount,
-        modifiedCount = mongoUpdateResult.getModifiedCount)
   }
 
   private object Config {

@@ -1,8 +1,8 @@
 package dev.shvimas.garcon.database
 
 import dev.shvimas.garcon.database.model._
-import dev.shvimas.garcon.database.response._
 import dev.shvimas.translate.LanguageDirection
+import org.mongodb.scala.result.UpdateResult
 import scalaz.zio.Task
 
 trait Database {
