@@ -59,7 +59,7 @@ object DatabaseInteraction extends StrictLogging {
           case Right(Some((commonTranslation, languageDirection))) =>
             if (commonTranslation.isEmpty) ZIO.unit
             else {
-              ZIO.accessM[Database](_.addCommonTranslation(commonTranslation, chatId -> languageDirection))
+              ZIO.accessM[Database](_.addCommonTranslation(commonTranslation, chatId, languageDirection))
                 .map((updateResult: UpdateResult) =>
                   if (!updateResult.wasAcknowledged) {
                     logger.error(s"Tried to save $commonTranslation for $chatId but it was not acknowledged")

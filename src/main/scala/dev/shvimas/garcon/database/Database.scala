@@ -10,7 +10,7 @@ trait Database {
 
   def getOffset: Task[Long]
 
-  def addCommonTranslation(translation: CommonTranslation, key: (Int, LanguageDirection)): Task[UpdateResult]
+  def addCommonTranslation(translation: CommonTranslation, chatId: Int, languageDirection: LanguageDirection): Task[UpdateResult]
 
   def getUserData(chatId: Int): Task[Option[UserData]]
 

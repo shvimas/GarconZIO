@@ -16,7 +16,7 @@ import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.model.{ReplaceOptions, UpdateOptions}
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.model.Updates.{max, set}
+import org.mongodb.scala.model.Updates.{combine, max, set}
 import org.mongodb.scala.result.{DeleteResult, UpdateResult}
 import scalaz.zio.{Task, ZIO}
 
@@ -66,40 +66,49 @@ object Mongo {
         case None => 0
       }
 
-    private def getWordsColl(key: (Int, LanguageDirection)): MongoCollection[MongoCommonTranslation] =
-      garconDb.getCollection(s"${key._1}_${key._2.source}-${key._2.target}")
+    private def getWordsColl(chatId: Int): MongoCollection[MongoCommonTranslation] =
+      garconDb.getCollection(s"${chatId}_words")
 
     def lookUpText(text: String,
                    langDirection: LanguageDirection,
                    chatId: Int,
                   ): Task[Option[MongoCommonTranslation]] =
       fromFuture(
-        getWordsColl(chatId -> langDirection)
-          .find(filter = equal(CommonTranslationFields.text, text))
+        getWordsColl(chatId)
+          .find(filter = combine(
+            equal(CommonTranslationFields.text, text),
+            equal(CommonTranslationFields.languageDirection, MongoLanguageDirection(langDirection))))
           .first()
           .toFutureOption()
       )
 
     override def addCommonTranslation(translation: CommonTranslation,
-                                      key: (Int, LanguageDirection),
-                                     ): Task[UpdateResult] =
+                                      chatId: Int,
+                                      languageDirection: LanguageDirection,
+                                     ): Task[UpdateResult] = {
+      val mongoLanguageDirection = MongoLanguageDirection(languageDirection)
       fromFuture(
-        getWordsColl(key)
+        getWordsColl(chatId)
           .replaceOne(
-            filter = equal(CommonTranslationFields.text, translation.originalText),
-            replacement = MongoCommonTranslation(translation),
-            repsert,
+            filter = combine(
+              equal(CommonTranslationFields.text, translation.originalText),
+              equal(CommonTranslationFields.languageDirection, mongoLanguageDirection)),
+            replacement = MongoCommonTranslation(translation, mongoLanguageDirection),
+            options = repsert
           )
           .toFuture()
       )
+    }
 
     def deleteText(text: String,
                    langDirection: LanguageDirection,
                    chatId: Int,
                   ): Task[DeleteResult] =
       fromFuture(
-        getWordsColl(chatId -> langDirection)
-          .deleteOne(filter = equal(CommonTranslationFields.text, text))
+        getWordsColl(chatId)
+          .deleteOne(filter = combine(
+            equal(CommonTranslationFields.text, text),
+            equal(CommonTranslationFields.languageDirection, MongoLanguageDirection(langDirection))))
           .toFuture()
       )
 
