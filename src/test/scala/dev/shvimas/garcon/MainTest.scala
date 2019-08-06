@@ -15,8 +15,8 @@ import scala.collection.concurrent
 import scala.collection.JavaConverters._
 
 class MainTest extends ZioFunSuite {
-  val testEnvironment: TestBot with TestDatabase with TestTranslations =
-    new TestBot with TestDatabase with TestTranslations
+  val testEnvironment: TestBot with TestDatabase.Instance with TestTranslations =
+    new TestBot with TestDatabase.Instance with TestTranslations
 
   val en_ru: LanguageDirection = LanguageDirection.EN_RU
   val ru_en: LanguageDirection = LanguageDirection.RU_EN
@@ -85,7 +85,7 @@ class MainTest extends ZioFunSuite {
     )
 
     testEnvironment.initTestBot(allUpdates)
-    testEnvironment.initTestDatabase(None, initialUserData, previousTranslations)
+//    testEnvironment.initTestDatabase(None, initialUserData, previousTranslations)
     testEnvironment.initTestTranslations(abbyyTranslations, yandexTranslations, CommonTranslationFields.yandex)
 
     val expectedOffset: Long = allUpdates.map(_.updateId).max + 1

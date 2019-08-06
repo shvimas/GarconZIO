@@ -20,5 +20,13 @@ services:
     ports:
       - "5005:5005"
 
+  test_mongo:
+    container_name: garcon-test-mongo
+    build: mongo/test
+    env_file:
+      - mongo/test/test_mongo.list
+    ports:
+      - "27020:27017"
+
 volumes:
   mongo-volume:

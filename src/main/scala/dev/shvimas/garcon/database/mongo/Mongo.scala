@@ -1,12 +1,13 @@
 package dev.shvimas.garcon.database.mongo
 
 import com.mongodb.ConnectionString
+import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import dev.shvimas.garcon.MainConfig.config
 import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.database.model._
 import dev.shvimas.garcon.database.mongo.codec.LanguageCodeCodecProvider
 import dev.shvimas.garcon.database.mongo.model._
+import dev.shvimas.garcon.MainConfig
 import dev.shvimas.translate.LanguageDirection
 import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
 import org.bson.codecs.configuration.CodecRegistry
@@ -24,10 +25,17 @@ import scala.concurrent.Future
 
 object Mongo {
 
+  trait Live extends Instance {
+    override val settings: Settings = new Settings(MainConfig.config)
+  }
+
   trait Instance extends Database with StrictLogging {
 
-    import Config._
     import Helpers._
+
+    val settings: Settings
+
+    import settings._
 
     protected val garconDb: MongoDatabase = client.getDatabase(DbName.garcon)
 
@@ -149,7 +157,7 @@ object Mongo {
 
   }
 
-  private object Config {
+  class Settings(config: Config) {
     val username: String = config.getString("mongo.username")
     val password: String = config.getString("mongo.password")
     val host: String = config.getString("mongo.host")

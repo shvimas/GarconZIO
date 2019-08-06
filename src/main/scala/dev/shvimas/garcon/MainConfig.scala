@@ -33,6 +33,6 @@ object MainConfig extends LazyLogging {
   lazy private val botSettings = TelegramBotSettings(botToken, proxySettings)
 
   lazy val environment: Bot with Database with Translators =
-    new TelegramBot(botSettings) with Mongo.Instance with Translators.Live
+    new TelegramBot(botSettings) with Mongo.Live with Translators.Live
 
 }

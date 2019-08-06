@@ -1,0 +1,70 @@
+{
+  "_id": {
+    "$oid": "5d3372f5d7fd79fdfba6d86e"
+  },
+  "text": "Diurnal",
+  "translations": {
+    "abbyy": "дневной, действующий днём",
+    "yandex": "Суточные"
+  }
+}
+{
+  "_id": {
+    "$oid": "5d338485d7fd79fdfba6f035"
+  },
+  "text": "Senile",
+  "translations": {
+    "abbyy": "старческий; дряхлый",
+    "yandex": "Маразматик"
+  }
+}
+{
+  "_id": {
+    "$oid": "5d340a35d7fd79fdfba7a524"
+  },
+  "text": "Prominent",
+  "translations": {
+    "abbyy": "выступающий; торчащий",
+    "yandex": "Видное"
+  }
+}
+{
+  "_id": {
+    "$oid": "5d34306ad7fd79fdfba7d8de"
+  },
+  "text": "Ravine",
+  "translations": {
+    "abbyy": "ущелье; лощина, овраг, ложбина; дефиле",
+    "yandex": "Овраг"
+  }
+}
+{
+  "_id": {
+    "$oid": "5d345908d7fd79fdfba80fdc"
+  },
+  "text": "Poignant",
+  "translations": {
+    "abbyy": "едкий, острый, пикантный",
+    "yandex": "Колкий"
+  }
+}
+{
+  "_id": {
+    "$oid": "5d346946d7fd79fdfba825dd"
+  },
+  "text": "Contempt",
+  "translations": {
+    "abbyy": "презрение",
+    "yandex": "Презрение"
+  }
+}
+{
+  "_id": {
+    "$oid": "5d34ddb2d7fd79fdfba8c36f"
+  },
+  "text": "Albeit",
+  "translations": {
+    "abbyy": "хотя (и)",
+    "yandex": "Хотя"
+  }
+}
