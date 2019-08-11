@@ -85,6 +85,7 @@ object Mongo {
     override def addCommonTranslation(translation: CommonTranslation,
                                       chatId: Int,
                                       languageDirection: LanguageDirection,
+                                      messageId: Int,
                                      ): Task[UpdateResult] = {
       val mongoLanguageDirection = MongoLanguageDirection(languageDirection)
       fromFuture(
@@ -93,17 +94,17 @@ object Mongo {
             filter = combine(
               equal(CommonTranslationFields.text, translation.originalText),
               equal(CommonTranslationFields.languageDirection, mongoLanguageDirection)),
-            replacement = MongoCommonTranslation(translation, mongoLanguageDirection),
+            replacement = MongoCommonTranslation(translation, mongoLanguageDirection, messageId),
             options = repsert
           )
           .toFuture()
       )
     }
 
-    def deleteText(text: String,
-                   langDirection: LanguageDirection,
-                   chatId: Int,
-                  ): Task[DeleteResult] =
+    override def deleteText(text: String,
+                            langDirection: LanguageDirection,
+                            chatId: Int,
+                           ): Task[DeleteResult] =
       fromFuture(
         getWordsColl(chatId)
           .deleteOne(filter = combine(
@@ -139,6 +140,21 @@ object Mongo {
           set(UserDataFields.langDir, MongoLanguageDirection(languageDirection)),
           upsert
         ).toFuture()
+      )
+
+    override def findLanguageDirectionForMessage(chatId: Int,
+                                                 text: String,
+                                                 messageId: Int,
+                                                ): Task[Option[LanguageDirection]] =
+      fromFuture(
+        getWordsColl(chatId)
+          .find(
+            combine(
+              equal(CommonTranslationFields.text, text),
+              equal(CommonTranslationFields.messageId, messageId))
+          )
+          .map(_.languageDirection.toLanguageDirection)
+          .headOption()
       )
   }
 

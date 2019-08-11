@@ -3,7 +3,7 @@ package dev.shvimas.garcon
 import cats.syntax.show._
 import com.typesafe.scalalogging.LazyLogging
 import dev.shvimas.garcon.database.Database
-import dev.shvimas.garcon.database.model.CommonTranslation
+import dev.shvimas.garcon.model._
 import dev.shvimas.garcon.utils.ExceptionUtils.showThrowable
 import dev.shvimas.telegram._
 import dev.shvimas.telegram.model.{Message, Update}
@@ -93,34 +93,90 @@ object Main extends App with LazyLogging {
         ).map(unify)
       }
 
-  type Result = Either[(Throwable, Update), Option[TranslationWithInfo]]
+  def processTranslationRequest(text: String,
+                                message: Message,
+                               ): ZIO[Database with Translators, Throwable, TranslationResponse] =
+    resolveLangDirection(message.chat.id)
+      .map(_.maybeReverse(text))
+      .flatMap(languageDirection =>
+        commonTranslation(text, languageDirection)
+          .map(TranslationWithInfo(_, languageDirection, message.messageId)))
+      .map(TranslationResponse)
 
-  def processUpdatesPerUser(chatId: Int,
-                            updates: Iterable[Update],
-                           ): ZIO[Database with Translators, Nothing, (Int, List[Result])] =
-    ZIO.collectAll(
-      updates.map(
-        update =>
-          update.message match {
-            case Some(message) =>
-              translate(message)
-                .mapError(_ -> update)
-                .either
-            case None =>
-              ZIO.succeed(None).either
+  def processDeleteCommand(command: DeleteCommand,
+                           message: Message,
+                          ): ZIO[Database, Throwable, DeletionResponse] = {
+    def deleteText(text: String,
+                   languageDirection: LanguageDirection,
+                   chatId: Int
+                  ): ZIO[Database, Throwable, Either[String, String]] = {
+      ZIO.accessM[Database](_.deleteText(text, languageDirection, chatId))
+        .map { result =>
+          if (result.wasAcknowledged()) {
+            Right(s"Deleted $text ($languageDirection)")
+          } else {
+            Left(s"Failed to delete $text ($languageDirection)")
           }
-      )
-    ).map(results => chatId -> results)
+        }
+    }
 
-  type AllResults = List[(Int, List[Result])]
+    val chatId = message.chat.id
+    val result: ZIO[Database, Throwable, Either[String, String]] =
+      command match {
+        case DeleteByReply(reply) =>
+          reply.text match {
+            case Some(text) =>
+              ZIO.accessM[Database](_.findLanguageDirectionForMessage(chatId, text, reply.messageId))
+                .flatMap {
+                  case Some(languageDirection) =>
+                    deleteText(text, languageDirection, chatId)
+                  case None =>
+                    ZIO.succeed(Left(s"Couldn't delete $text (failed to find language direction)"))
+                }
+            case None =>
+              ZIO.succeed(Left("Couldn't delete (text is empty)"))
+          }
+        case DeleteByText(text, languageDirection) =>
+          deleteText(text, languageDirection, chatId)
+        case BadDeleteCommand(desc) =>
+          ZIO.succeed(Left(desc))
+      }
+    result.map(DeletionResponse)
+  }
+
+  case class ErrorWithInfo(error: Throwable, update: Update)
+
+  def processUpdate(update: Update): ZIO[Database with Translators, Nothing, Either[ErrorWithInfo, Response]] =
+    update.message match {
+      case Some(message) =>
+        RequestParser.parse(message) match {
+          case TranslationRequest(text) =>
+            processTranslationRequest(text, message)
+              .mapError(ErrorWithInfo(_, update))
+              .either
+          case deleteCommand: DeleteCommand =>
+            processDeleteCommand(deleteCommand, message)
+              .mapError(ErrorWithInfo(_, update))
+              .either
+          case UnrecognisedCommand(command) =>
+            ZIO.succeed(Right(UnrecognisedCommandResponse(command)))
+          case EmptyRequest =>
+            ZIO.succeed(Right(EmptyMessageResponse))
+        }
+      case None =>
+        ZIO.succeed(Right(EmptyMessageResponse))
+    }
+
+  type AllResults = List[(Int, List[Either[ErrorWithInfo, Response]])]
 
   def processGroupedUpdates(updateGroups: Map[Int, Seq[Update]],
                            ): ZIO[Database with Translators, Nothing, AllResults] =
-  // important that error type is Nothing in processUpdatesPerUser
+  // important that error type is Nothing in processUpdate
   // otherwise collectAllPar could interrupt other users' processing
     ZIO.collectAllPar(
       updateGroups.map { case (chatId, updates) =>
-        processUpdatesPerUser(chatId, updates)
+        ZIO.collectAll(updates.map(processUpdate))
+          .map(chatId -> _)
       }
     )
 
@@ -128,40 +184,22 @@ object Main extends App with LazyLogging {
     logger.warn(
       s"""Got updates from unknown chat:
          |${orphanUpdates.mkString("\n")}
-
-
+         |
+         |
          |These updates were left unattended""".stripMargin)
   }
 
   def processErrors(allResults: AllResults): ZIO[Any, Nothing, Unit] =
     ZIO.foreachPar(allResults) {
-      case (chatId, resultsPerUser: List[Result]) =>
+      case (_, resultsPerUser: List[Either[ErrorWithInfo, Response]]) =>
         resultsPerUser.foreach {
-          case Left((throwable: Throwable, update: Update)) =>
+          case Left(ErrorWithInfo(throwable, update)) =>
             logger.error(
               s"""While processing $update:
                  |${throwable.show}""".stripMargin)
-          case Right(None) =>
-            logger.warn(s"Got empty translation for chat with id: $chatId")
-          case Right(Some(_)) =>
+          case Right(_) =>
         }
         ZIO.unit
     }.map(unify)
-
-
-  type TranslationWithInfo = (CommonTranslation, LanguageDirection)
-
-  def translate(message: Message): ZIO[Database with Translators, Throwable, Option[TranslationWithInfo]] =
-    ZIO.succeed(message.text).flatMap {
-      case Some(text) =>
-        resolveLangDirection(message.chat.id)
-          .map(_.maybeReverse(text))
-          .flatMap(languageDirection =>
-            commonTranslation(text, languageDirection)
-              .map(_ -> languageDirection)
-          ).map(Some(_))
-      case None => ZIO.succeed(None)
-    }
-
 
 }

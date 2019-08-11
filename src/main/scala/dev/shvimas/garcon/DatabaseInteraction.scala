@@ -4,8 +4,9 @@ import cats.syntax.show._
 import com.typesafe.scalalogging.StrictLogging
 import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.utils.ExceptionUtils.showThrowable
-import dev.shvimas.garcon.Main.AllResults
+import dev.shvimas.garcon.Main._
 import dev.shvimas.garcon.database.model.UserData
+import dev.shvimas.garcon.model._
 import dev.shvimas.telegram.model.Result.GetUpdatesResult
 import dev.shvimas.translate.LanguageDirection
 import org.mongodb.scala.result.UpdateResult
@@ -52,27 +53,36 @@ object DatabaseInteraction extends StrictLogging {
 
   def saveResults(allResults: AllResults): ZIO[Database, Nothing, Unit] =
     ZIO.collectAllPar(
-      allResults.flatMap { case (chatId, perUserResults) =>
+      allResults.flatMap { case (chatId, perUserResults: List[Either[ErrorWithInfo, Response]]) =>
         perUserResults.map {
           case Left(_) => ZIO.unit
-          case Right(None) => ZIO.unit
-          case Right(Some((commonTranslation, languageDirection))) =>
-            if (commonTranslation.isEmpty) ZIO.unit
-            else {
-              ZIO.accessM[Database](_.addCommonTranslation(commonTranslation, chatId, languageDirection))
-                .map((updateResult: UpdateResult) =>
-                  if (!updateResult.wasAcknowledged) {
-                    logger.error(s"Tried to save $commonTranslation for $chatId but it was not acknowledged")
-                  })
-                .mapError((throwable: Throwable) =>
-                  logger.error(
-                    s"""While saving $commonTranslation for $chatId:
-                       |${throwable.show}""".stripMargin))
-                .either
-                .map(unify)
-            }
+          case Right(DeletionResponse(_)) |
+               Right(UnrecognisedCommandResponse(_)) |
+               Right(EmptyMessageResponse) => ZIO.unit
+          case Right(TranslationResponse(translationWithInfo)) =>
+            saveTranslationResult(chatId, translationWithInfo)
         }
       }
     ).map(unify)
 
+  private def saveTranslationResult(chatId: Int,
+                                    translationWithInfo: TranslationWithInfo,
+                                   ): ZIO[Database, Nothing, Unit] = {
+    val TranslationWithInfo(commonTranslation, languageDirection, messageId) = translationWithInfo
+    if (commonTranslation.isEmpty) {
+      ZIO.unit
+    } else {
+      ZIO.accessM[Database](_.addCommonTranslation(commonTranslation, chatId, languageDirection, messageId))
+        .map((updateResult: UpdateResult) =>
+          if (!updateResult.wasAcknowledged) {
+            logger.error(s"Tried to save $commonTranslation for $chatId but it was not acknowledged")
+          })
+        .mapError((throwable: Throwable) =>
+          logger.error(
+            s"""While saving $commonTranslation for $chatId:
+               |${throwable.show}""".stripMargin))
+        .either
+        .map(unify)
+    }
+  }
 }

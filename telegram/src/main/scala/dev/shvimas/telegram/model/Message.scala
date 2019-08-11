@@ -7,4 +7,5 @@ case class Message(messageId: Int,
                    editDate: Option[Int],
                    text: Option[String],
                    entities: List[MessageEntity],
-                   captionEntities: List[MessageEntity])
+                   captionEntities: List[MessageEntity],
+                   replyToMessage: Option[Message])

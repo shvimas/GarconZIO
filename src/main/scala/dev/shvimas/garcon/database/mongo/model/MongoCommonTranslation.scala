@@ -5,6 +5,8 @@ import org.mongodb.scala.bson.annotations.BsonProperty
 
 private[mongo] case class MongoCommonTranslation(@BsonProperty(Fields.text)
                                                  text: String,
+                                                 @BsonProperty(Fields.messageId)
+                                                 messagedId: Int,
                                                  @BsonProperty(Fields.translations)
                                                  translations: Map[String, String],
                                                  @BsonProperty(Fields.languageDirection)
@@ -13,9 +15,11 @@ private[mongo] case class MongoCommonTranslation(@BsonProperty(Fields.text)
 object MongoCommonTranslation {
   def apply(commonTranslation: CommonTranslation,
             languageDirection: MongoLanguageDirection,
+            messageId: Int,
            ): MongoCommonTranslation =
     MongoCommonTranslation(
       text = commonTranslation.text,
+      messagedId = messageId,
       translations = commonTranslation.translations,
       languageDirection = languageDirection,
     )
