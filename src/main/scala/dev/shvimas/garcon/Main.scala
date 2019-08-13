@@ -138,8 +138,6 @@ object Main extends App with LazyLogging {
           }
         case DeleteByText(text, languageDirection) =>
           deleteText(text, languageDirection, chatId)
-        case BadDeleteCommand(desc) =>
-          ZIO.succeed(Left(desc))
       }
     result.map(DeletionResponse)
   }
@@ -158,6 +156,8 @@ object Main extends App with LazyLogging {
             processDeleteCommand(deleteCommand, message)
               .mapError(ErrorWithInfo(_, update))
               .either
+          case MalformedCommand(desc) =>
+            ZIO.succeed(Right(MalformedCommandResponse(desc)))
           case UnrecognisedCommand(command) =>
             ZIO.succeed(Right(UnrecognisedCommandResponse(command)))
           case EmptyRequest =>

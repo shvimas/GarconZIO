@@ -9,6 +9,8 @@ case class TranslationResponse(translationWithInfo: TranslationWithInfo) extends
 
 case class DeletionResponse(response: Either[String, String]) extends Response
 
+case class MalformedCommandResponse(desc: String) extends Response
+
 case class UnrecognisedCommandResponse(command: String) extends Response
 
 object EmptyMessageResponse extends Response

@@ -33,7 +33,7 @@ object DeleteByText {
   val pattern: Regex = "\\s+(.*)\\s+(.*)\\s*".r
 }
 
-case class BadDeleteCommand(desc: String) extends DeleteCommand
+case class MalformedCommand(desc: String) extends Command
 
 case class UnrecognisedCommand(desc: String) extends Command
 
@@ -58,14 +58,14 @@ object RequestParser {
           case DeleteByReply.pattern() =>
             message.replyToMessage match {
               case Some(replyTo) => DeleteByReply(replyTo)
-              case None => BadDeleteCommand("got nothing to delete")
+              case None => MalformedCommand("got nothing to delete")
             }
           case DeleteByText.pattern(word, couldBeLanguageDirection) =>
             LanguageDirection.parse(couldBeLanguageDirection) match {
               case Some(languageDirection) => DeleteByText(word, languageDirection)
-              case None => BadDeleteCommand(s"bad language direction: $couldBeLanguageDirection")
+              case None => MalformedCommand(s"bad language direction: $couldBeLanguageDirection")
             }
-          case other: String => BadDeleteCommand(s"""can't understand "$other"""")
+          case other: String => MalformedCommand(s"""can't understand "$other"""")
         }
       case other => UnrecognisedCommand(other)
     }

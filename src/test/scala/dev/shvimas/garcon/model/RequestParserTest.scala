@@ -33,7 +33,7 @@ class RequestParserTest extends FunSuite {
   test("bad delete by lang dir") {
     val text = "/delete test trash"
     val message = makeMessage(text, None)
-    doTest(message, BadDeleteCommand("bad language direction: trash"))
+    doTest(message, MalformedCommand("bad language direction: trash"))
   }
 
   val defaultChat =

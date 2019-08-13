@@ -26,6 +26,8 @@ object BotInteraction {
                     s"Error: $error"
                   case DeletionResponse(Right(text)) =>
                     text
+                  case MalformedCommandResponse(desc) =>
+                    desc
                   case UnrecognisedCommandResponse(command) =>
                     s"Can't understand your command ($command)"
                   case EmptyMessageResponse =>

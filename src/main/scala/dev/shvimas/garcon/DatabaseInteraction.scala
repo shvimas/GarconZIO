@@ -57,6 +57,7 @@ object DatabaseInteraction extends StrictLogging {
         perUserResults.map {
           case Left(_) => ZIO.unit
           case Right(DeletionResponse(_)) |
+               Right(MalformedCommandResponse(_)) |
                Right(UnrecognisedCommandResponse(_)) |
                Right(EmptyMessageResponse) => ZIO.unit
           case Right(TranslationResponse(translationWithInfo)) =>
