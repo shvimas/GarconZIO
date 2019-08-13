@@ -142,40 +142,40 @@ object Main extends App with LazyLogging {
     result.map(DeletionResponse)
   }
 
-  case class ErrorWithInfo(error: Throwable, update: Update)
-
-  def processUpdate(update: Update): ZIO[Database with Translators, Nothing, Either[ErrorWithInfo, Response]] =
+  def processUpdate(update: Update): ZIO[Database with Translators, Throwable, Response] =
     update.message match {
       case Some(message) =>
         RequestParser.parse(message) match {
           case TranslationRequest(text) =>
             processTranslationRequest(text, message)
-              .mapError(ErrorWithInfo(_, update))
-              .either
           case deleteCommand: DeleteCommand =>
             processDeleteCommand(deleteCommand, message)
-              .mapError(ErrorWithInfo(_, update))
-              .either
           case MalformedCommand(desc) =>
-            ZIO.succeed(Right(MalformedCommandResponse(desc)))
+            ZIO.succeed(MalformedCommandResponse(desc))
           case UnrecognisedCommand(command) =>
-            ZIO.succeed(Right(UnrecognisedCommandResponse(command)))
+            ZIO.succeed(UnrecognisedCommandResponse(command))
           case EmptyRequest =>
-            ZIO.succeed(Right(EmptyMessageResponse))
+            ZIO.succeed(EmptyMessageResponse)
         }
       case None =>
-        ZIO.succeed(Right(EmptyMessageResponse))
+        ZIO.succeed(EmptyMessageResponse)
     }
+
+  case class ErrorWithInfo(error: Throwable, update: Update)
 
   type AllResults = List[(Int, List[Either[ErrorWithInfo, Response]])]
 
   def processGroupedUpdates(updateGroups: Map[Int, Seq[Update]],
                            ): ZIO[Database with Translators, Nothing, AllResults] =
-  // important that error type is Nothing in processUpdate
+  // important that error type is Nothing in inner collect
   // otherwise collectAllPar could interrupt other users' processing
     ZIO.collectAllPar(
       updateGroups.map { case (chatId, updates) =>
-        ZIO.collectAll(updates.map(processUpdate))
+        ZIO.collectAll(
+          updates.map(update =>
+            processUpdate(update)
+              .mapError(ErrorWithInfo(_, update))
+              .either))
           .map(chatId -> _)
       }
     )
