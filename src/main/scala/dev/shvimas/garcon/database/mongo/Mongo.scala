@@ -15,6 +15,7 @@ import org.mongodb.scala.bson.codecs.Macros._
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.model.{ReplaceOptions, UpdateOptions}
+import org.mongodb.scala.model.Aggregates._
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Updates.{combine, max, set}
 import org.mongodb.scala.result.{DeleteResult, UpdateResult}
@@ -69,17 +70,18 @@ object Mongo {
     private def getWordsColl(chatId: Int): MongoCollection[MongoCommonTranslation] =
       garconDb.getCollection(s"${chatId}_words")
 
-    def lookUpText(text: String,
-                   langDirection: LanguageDirection,
-                   chatId: Int,
-                  ): Task[Option[MongoCommonTranslation]] =
+    override def lookUpText(text: String,
+                            languageDirection: LanguageDirection,
+                            chatId: Int,
+                           ): Task[Option[CommonTranslation]] =
       fromFuture(
         getWordsColl(chatId)
           .find(filter = combine(
             equal(CommonTranslationFields.text, text),
-            equal(CommonTranslationFields.languageDirection, MongoLanguageDirection(langDirection))))
+            equal(CommonTranslationFields.languageDirection, MongoLanguageDirection(languageDirection))))
           .first()
-          .toFutureOption()
+          .map(_.toCommonTranslation)
+          .headOption()
       )
 
     override def addCommonTranslation(translation: CommonTranslation,
@@ -154,6 +156,19 @@ object Mongo {
               equal(CommonTranslationFields.messageId, messageId))
           )
           .map(_.languageDirection.toLanguageDirection)
+          .headOption()
+      )
+
+    override def getRandomWord(chatId: Int,
+                               languageDirection: LanguageDirection,
+                              ): Task[Option[CommonTranslation]] =
+      fromFuture(
+        getWordsColl(chatId)
+          .aggregate(Seq(
+            `match`(equal(CommonTranslationFields.languageDirection, MongoLanguageDirection(languageDirection))),
+            sample(1),
+          ))
+          .map(_.toCommonTranslation)
           .headOption()
       )
   }

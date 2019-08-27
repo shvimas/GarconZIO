@@ -9,11 +9,37 @@ case class TranslationResponse(translationWithInfo: TranslationWithInfo) extends
 
 case class DeletionResponse(response: Either[String, String]) extends Response
 
-case class MalformedCommandResponse(desc: String) extends Response
+sealed trait TestResponse extends Response
 
-case class UnrecognisedCommandResponse(command: String) extends Response
+case class TestStartResponse(maybeTranslation: Option[CommonTranslation],
+                             languageDirection: LanguageDirection,
+                            ) extends TestResponse
 
-object EmptyMessageResponse extends Response
+case class TestNextResponse(maybeTranslation: Option[CommonTranslation],
+                            languageDirection: LanguageDirection,
+                           ) extends TestResponse
+
+object TestNextResponse {
+  def makeCallbackData(languageDirection: LanguageDirection): String = {
+    s"test next $languageDirection"
+  }
+}
+
+case class TestShowResponse(maybeTranslation: Option[CommonTranslation],
+                            languageDirection: LanguageDirection,
+                           ) extends TestResponse
+
+sealed trait ErrorResponse extends Response
+
+case class MalformedCommandResponse(desc: String) extends ErrorResponse
+
+case class UnrecognisedCommandResponse(command: String) extends ErrorResponse
+
+object EmptyUpdateResponse extends ErrorResponse
+
+object EmptyCallbackDataResponse extends ErrorResponse
+
+object EmptyMessageResponse extends ErrorResponse
 
 case class TranslationWithInfo(translation: CommonTranslation,
                                languageDirection: LanguageDirection,

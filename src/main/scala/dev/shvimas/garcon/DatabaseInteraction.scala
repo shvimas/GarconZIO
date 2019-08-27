@@ -56,12 +56,14 @@ object DatabaseInteraction extends StrictLogging {
       allResults.flatMap { case (chatId, perUserResults: List[Either[ErrorWithInfo, Response]]) =>
         perUserResults.map {
           case Left(_) => ZIO.unit
-          case Right(DeletionResponse(_)) |
-               Right(MalformedCommandResponse(_)) |
-               Right(UnrecognisedCommandResponse(_)) |
-               Right(EmptyMessageResponse) => ZIO.unit
-          case Right(TranslationResponse(translationWithInfo)) =>
-            saveTranslationResult(chatId, translationWithInfo)
+          case Right(response) =>
+            response match {
+              case TranslationResponse(translationWithInfo) =>
+                saveTranslationResult(chatId, translationWithInfo)
+              case _: DeletionResponse |
+                   _: TestResponse |
+                   _: ErrorResponse => ZIO.unit
+            }
         }
       }
     ).map(unify)

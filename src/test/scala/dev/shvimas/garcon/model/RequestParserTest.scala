@@ -7,27 +7,27 @@ import org.scalatest.FunSuite
 class RequestParserTest extends FunSuite {
 
   def doTest(message: Message, expected: Request): Unit = {
-    val messageToCommand = RequestParser.parse(message)
+    val messageToCommand = RequestParser.parseMessage(message)
     assert(messageToCommand == expected)
   }
 
   test("translate") {
     val text = "some text"
     val message = makeMessage(text, None)
-    doTest(message, TranslationRequest(text))
+    doTest(message, TranslationRequest(text, 101, 1337))
   }
 
   test("delete by reply") {
     val text = "/delete"
     val reply = makeMessage("to be deleted", None)
     val message = makeMessage(text, Some(reply))
-    doTest(message, DeleteByReply(reply))
+    doTest(message, DeleteByReply(reply, 101))
   }
 
   test("delete by lang dir") {
     val text = "/delete test en-ru"
     val message = makeMessage(text, None)
-    doTest(message, DeleteByText("test", LanguageDirection.EN_RU))
+    doTest(message, DeleteByText("test", LanguageDirection.EN_RU, 101))
   }
 
   test("bad delete by lang dir") {
@@ -57,5 +57,6 @@ class RequestParserTest extends FunSuite {
       entities = Nil,
       captionEntities = Nil,
       replyToMessage = replyToMessage,
+      replyMarkup = None,
     )
 }

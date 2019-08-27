@@ -6,8 +6,8 @@ import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.model._
 import dev.shvimas.garcon.utils.ExceptionUtils.showThrowable
 import dev.shvimas.telegram._
-import dev.shvimas.telegram.model.{Message, Update}
 import dev.shvimas.telegram.model.Result.{GetUpdatesResult, SendMessageResult}
+import dev.shvimas.telegram.model.Update
 import dev.shvimas.translate.LanguageDirection
 import scalaz.zio.{ZIO, _}
 import scalaz.zio.clock.Clock
@@ -93,19 +93,20 @@ object Main extends App with LazyLogging {
         ).map(unify)
       }
 
-  def processTranslationRequest(text: String,
-                                message: Message,
-                               ): ZIO[Database with Translators, Throwable, TranslationResponse] =
-    resolveLangDirection(message.chat.id)
+  def processTranslationRequest(request: TranslationRequest,
+                               ): ZIO[Database with Translators, Throwable, TranslationResponse] = {
+    val text = request.text
+    val chatId = request.chatId
+    val messageId = request.messageId
+    resolveLangDirection(chatId)
       .map(_.maybeReverse(text))
       .flatMap(languageDirection =>
         commonTranslation(text, languageDirection)
-          .map(TranslationWithInfo(_, languageDirection, message.messageId)))
+          .map(TranslationWithInfo(_, languageDirection, messageId)))
       .map(TranslationResponse)
+  }
 
-  def processDeleteCommand(command: DeleteCommand,
-                           message: Message,
-                          ): ZIO[Database, Throwable, DeletionResponse] = {
+  def processDeleteCommand(command: DeleteCommand): ZIO[Database, Throwable, DeletionResponse] = {
     def deleteText(text: String,
                    languageDirection: LanguageDirection,
                    chatId: Int
@@ -120,10 +121,9 @@ object Main extends App with LazyLogging {
         }
     }
 
-    val chatId = message.chat.id
     val result: ZIO[Database, Throwable, Either[String, String]] =
       command match {
-        case DeleteByReply(reply) =>
+        case DeleteByReply(reply, chatId) =>
           reply.text match {
             case Some(text) =>
               ZIO.accessM[Database](_.findLanguageDirectionForMessage(chatId, text, reply.messageId))
@@ -136,29 +136,44 @@ object Main extends App with LazyLogging {
             case None =>
               ZIO.succeed(Left("Couldn't delete (text is empty)"))
           }
-        case DeleteByText(text, languageDirection) =>
+        case DeleteByText(text, languageDirection, chatId) =>
           deleteText(text, languageDirection, chatId)
       }
     result.map(DeletionResponse)
   }
 
+  def processTestCommand(command: TestCommand): ZIO[Database, Throwable, TestResponse] = {
+    command match {
+      case TestStartCommand(languageDirection, chatId) =>
+        ZIO.accessM[Database](_.getRandomWord(chatId, languageDirection))
+          .map(TestStartResponse(_, languageDirection))
+      case TestNextCommand(languageDirection, chatId) =>
+        ZIO.accessM[Database](_.getRandomWord(chatId, languageDirection))
+          .map(TestNextResponse(_, languageDirection))
+      case TestShowCommand(text, languageDirection, chatId) =>
+        ZIO.accessM[Database](_.lookUpText(text, languageDirection, chatId))
+        .map(TestShowResponse(_, languageDirection))
+    }
+  }
+
   def processUpdate(update: Update): ZIO[Database with Translators, Throwable, Response] =
-    update.message match {
-      case Some(message) =>
-        RequestParser.parse(message) match {
-          case TranslationRequest(text) =>
-            processTranslationRequest(text, message)
-          case deleteCommand: DeleteCommand =>
-            processDeleteCommand(deleteCommand, message)
-          case MalformedCommand(desc) =>
-            ZIO.succeed(MalformedCommandResponse(desc))
-          case UnrecognisedCommand(command) =>
-            ZIO.succeed(UnrecognisedCommandResponse(command))
-          case EmptyRequest =>
-            ZIO.succeed(EmptyMessageResponse)
-        }
-      case None =>
+    RequestParser.parseUpdate(update) match {
+      case request: TranslationRequest =>
+        processTranslationRequest(request)
+      case command: DeleteCommand =>
+        processDeleteCommand(command)
+      case command: TestCommand =>
+        processTestCommand(command)
+      case MalformedCommand(desc) =>
+        ZIO.succeed(MalformedCommandResponse(desc))
+      case UnrecognisedCommand(command) =>
+        ZIO.succeed(UnrecognisedCommandResponse(command))
+      case EmptyUpdate =>
+        ZIO.succeed(EmptyUpdateResponse)
+      case EmptyMessage =>
         ZIO.succeed(EmptyMessageResponse)
+      case EmptyCallbackData =>
+        ZIO.succeed(EmptyCallbackDataResponse)
     }
 
   case class ErrorWithInfo(error: Throwable, update: Update)

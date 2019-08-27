@@ -1,5 +1,6 @@
 package dev.shvimas.telegram
 
+import dev.shvimas.telegram.model.InlineKeyboardMarkup
 import dev.shvimas.telegram.model.Result.{GetUpdatesResult, SendMessageResult}
 
 import scala.util.Try
@@ -10,5 +11,6 @@ trait Bot {
   def sendMessage(chatId: Int,
                   text: Option[String],
                   disableNotification: Boolean = true,
-  ): Try[SendMessageResult]
+                  replyMarkup: Option[InlineKeyboardMarkup] = None,
+                 ): Try[SendMessageResult]
 }

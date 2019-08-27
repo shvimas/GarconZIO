@@ -4,6 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import com.softwaremill.sttp._
 import com.typesafe.scalalogging.StrictLogging
+import dev.shvimas.telegram.model.InlineKeyboardMarkup
 import dev.shvimas.telegram.model.Result._
 import org.json4s.{DefaultFormats, Formats}
 import org.json4s.native.JsonMethods.parse
@@ -17,17 +18,17 @@ class TelegramBot(settings: TelegramBotSettings) extends Bot with StrictLogging 
 
   implicit val defaultBackend: SttpBackend[Id, Nothing] =
     HttpURLConnectionBackend(
-        SttpBackendOptions(
-            FiniteDuration(20, TimeUnit.SECONDS),
-            settings.proxy.map(_.toSttpBackendProxy)
-        )
+      SttpBackendOptions(
+        FiniteDuration(20, TimeUnit.SECONDS),
+        settings.proxy.map(_.toSttpBackendProxy)
+      )
     )
 
   implicit val defaultFormats: DefaultFormats.type = DefaultFormats
 
   def callApi[R](method: String, params: Map[String, Any])(
-      implicit formats: Formats = defaultFormats,
-      manifest: Manifest[R]
+    implicit formats: Formats = defaultFormats,
+    manifest: Manifest[R]
   ): Try[R] =
     sttp
       .get(uri"https://api.telegram.org/bot${settings.token}/$method?$params")
@@ -46,16 +47,17 @@ class TelegramBot(settings: TelegramBotSettings) extends Bot with StrictLogging 
     callApi[GetUpdatesResult]("getUpdates", params)
   }
 
-  override def sendMessage(
-      chatId: Int,
-      text: Option[String],
-      disableNotification: Boolean = true
-  ): Try[SendMessageResult] = {
-    val params = Map(
-        "chat_id"              -> chatId,
-        "text"                 -> text,
-        "disable_notification" -> disableNotification.toString
+  override def sendMessage(chatId: StatusCode,
+                           text: Option[String],
+                           disableNotification: Boolean = true,
+                           replyMarkup: Option[InlineKeyboardMarkup] = None,
+                          ): Try[SendMessageResult] = {
+    var params = Map(
+      "chat_id" -> chatId,
+      "text" -> text,
+      "disable_notification" -> disableNotification.toString
     )
+    replyMarkup.foreach(markup => params += "reply_markup" -> markup.toJson)
     logger.debug("Sending message")
     val triedSendMessageResult = callApi[SendMessageResult]("sendMessage", params)
     logger.debug("Done.")

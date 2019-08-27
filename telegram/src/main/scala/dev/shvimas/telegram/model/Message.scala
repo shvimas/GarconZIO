@@ -8,4 +8,5 @@ case class Message(messageId: Int,
                    text: Option[String],
                    entities: List[MessageEntity],
                    captionEntities: List[MessageEntity],
-                   replyToMessage: Option[Message])
+                   replyToMessage: Option[Message],
+                   replyMarkup: Option[InlineKeyboardMarkup])
