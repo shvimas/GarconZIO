@@ -164,6 +164,8 @@ object Main extends App with LazyLogging {
         processDeleteCommand(command)
       case command: TestCommand =>
         processTestCommand(command)
+      case HelpCommand =>
+        ZIO.succeed(HelpResponse)
       case MalformedCommand(desc) =>
         ZIO.succeed(MalformedCommandResponse(desc))
       case UnrecognisedCommand(command) =>

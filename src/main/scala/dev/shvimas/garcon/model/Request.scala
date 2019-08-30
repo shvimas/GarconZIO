@@ -18,6 +18,10 @@ object Command {
   val pattern: Regex = "/(.*)".r
 }
 
+object HelpCommand extends Command {
+  val pattern: Regex = "help|start".r
+}
+
 sealed trait TestCommand extends Command
 // fixme: use protobuf for callback data
 
@@ -119,6 +123,7 @@ object RequestParser {
         }
       case TestStartCommand.pattern(couldBeLanguageDirection) =>
         parseLanguageDirection(couldBeLanguageDirection, TestStartCommand(_, chatId))
+      case HelpCommand.pattern() => HelpCommand
       case other => UnrecognisedCommand(other)
     }
   }

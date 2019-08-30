@@ -69,6 +69,8 @@ object BotInteraction {
                             s"Seems like no translation is saved 😔"
                         }
                     }
+                  case HelpResponse =>
+                    HelpResponse.message
                   case MalformedCommandResponse(desc) =>
                     desc
                   case UnrecognisedCommandResponse(command) =>
