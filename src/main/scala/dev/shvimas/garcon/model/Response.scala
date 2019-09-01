@@ -29,8 +29,6 @@ case class TestShowResponse(maybeTranslation: Option[CommonTranslation],
                             languageDirection: LanguageDirection,
                            ) extends TestResponse
 
-sealed trait ErrorResponse extends Response
-
 object HelpResponse extends Response {
   val message: String =
     """Hi! I'm Garcon, your personal vocabulary trainer.
@@ -47,6 +45,8 @@ object HelpResponse extends Response {
       |    It's also possible to reply /delete to your message with text to be deleted
       |Please contact @shvimas if you have any follow-up questions.""".stripMargin
 }
+
+sealed trait ErrorResponse extends Response
 
 case class MalformedCommandResponse(desc: String) extends ErrorResponse
 
