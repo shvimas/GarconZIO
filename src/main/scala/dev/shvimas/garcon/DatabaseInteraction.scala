@@ -62,6 +62,7 @@ object DatabaseInteraction extends StrictLogging {
                 saveTranslationResult(chatId, translationWithInfo)
               case _: DeletionResponse |
                    _: TestResponse |
+                   _: ChooseResponse |
                    HelpResponse |
                    _: ErrorResponse => ZIO.unit
             }

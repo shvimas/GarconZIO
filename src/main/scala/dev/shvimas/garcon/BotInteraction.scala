@@ -69,6 +69,10 @@ object BotInteraction {
                             s"Seems like no translation is saved 😔"
                         }
                     }
+                  case SuccessfulChooseResponse(languageDirection) =>
+                    s"Switched language direction to $languageDirection"
+                  case FailedChooseResponse(desc, languageDirection) =>
+                    s"Error: $desc while switching to $languageDirection"
                   case HelpResponse =>
                     HelpResponse.message
                   case MalformedCommandResponse(desc) =>

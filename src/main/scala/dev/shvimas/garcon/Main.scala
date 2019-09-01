@@ -152,7 +152,21 @@ object Main extends App with LazyLogging {
           .map(TestNextResponse(_, languageDirection))
       case TestShowCommand(text, languageDirection, chatId) =>
         ZIO.accessM[Database](_.lookUpText(text, languageDirection, chatId))
-        .map(TestShowResponse(_, languageDirection))
+          .map(TestShowResponse(_, languageDirection))
+    }
+  }
+
+  def processChooseRequest(command: ChooseCommand): ZIO[Database, Throwable, ChooseResponse] = {
+    command match {
+      case ChooseCommand(languageDirection, chatId) =>
+        ZIO.accessM[Database](_.setLanguageDirection(chatId, languageDirection))
+          .map { updateResult =>
+            if (updateResult.wasAcknowledged()) {
+              SuccessfulChooseResponse(languageDirection)
+            } else {
+              FailedChooseResponse("saving language direction was not acknowledged", languageDirection)
+            }
+          }
     }
   }
 
@@ -164,6 +178,8 @@ object Main extends App with LazyLogging {
         processDeleteCommand(command)
       case command: TestCommand =>
         processTestCommand(command)
+      case command: ChooseCommand =>
+        processChooseRequest(command)
       case HelpCommand =>
         ZIO.succeed(HelpResponse)
       case MalformedCommand(desc) =>

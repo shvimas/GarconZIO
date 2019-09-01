@@ -46,6 +46,12 @@ object TestShowCommand {
   val pattern: Regex = "test show (.*?) (.*)".r
 }
 
+case class ChooseCommand(languageDirection: LanguageDirection, chatId: Int) extends Command
+
+object ChooseCommand {
+  val pattern: Regex = "choose (.*)".r
+}
+
 sealed trait DeleteCommand extends Command
 
 object DeleteCommand {
@@ -123,6 +129,8 @@ object RequestParser {
         }
       case TestStartCommand.pattern(couldBeLanguageDirection) =>
         parseLanguageDirection(couldBeLanguageDirection, TestStartCommand(_, chatId))
+      case ChooseCommand.pattern(couldBeLanguageDirection) =>
+        parseLanguageDirection(couldBeLanguageDirection, ChooseCommand(_, chatId))
       case HelpCommand.pattern() => HelpCommand
       case other => UnrecognisedCommand(other)
     }

@@ -29,6 +29,12 @@ case class TestShowResponse(maybeTranslation: Option[CommonTranslation],
                             languageDirection: LanguageDirection,
                            ) extends TestResponse
 
+sealed trait ChooseResponse extends Response
+
+case class SuccessfulChooseResponse(languageDirection: LanguageDirection) extends ChooseResponse
+
+case class FailedChooseResponse(description: String, languageDirection: LanguageDirection) extends ChooseResponse
+
 object HelpResponse extends Response {
   val message: String =
     """Hi! I'm Garcon, your personal vocabulary trainer.
@@ -43,6 +49,9 @@ object HelpResponse extends Response {
       |    Delete text from saved
       |    E.g. /delete ubiquitous inquiry en-ru
       |    It's also possible to reply /delete to your message with text to be deleted
+      | - /choose <language direction>
+      |    Choose current language direction
+      |    E.g. /choose en-ru
       |Please contact @shvimas if you have any follow-up questions.""".stripMargin
 }
 
