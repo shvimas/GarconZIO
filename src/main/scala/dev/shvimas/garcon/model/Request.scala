@@ -1,8 +1,10 @@
 package dev.shvimas.garcon.model
 
+import dev.shvimas.garcon.model.proto.callback_data._
 import dev.shvimas.telegram.model.{CallbackQuery, Message, Update}
 import dev.shvimas.translate.LanguageDirection
 
+import scala.util.{Failure, Success, Try}
 import scala.util.matching.Regex
 
 sealed trait Request
@@ -23,7 +25,6 @@ object HelpCommand extends Command {
 }
 
 sealed trait TestCommand extends Command
-// fixme: use protobuf for callback data
 
 case class TestStartCommand(languageDirection: LanguageDirection, chatId: Int) extends TestCommand
 
@@ -33,18 +34,10 @@ object TestStartCommand {
 
 case class TestNextCommand(languageDirection: LanguageDirection, chatId: Int) extends TestCommand
 
-object TestNextCommand {
-  val pattern: Regex = "test next (.*)".r
-}
-
 case class TestShowCommand(text: String,
                            languageDirection: LanguageDirection,
                            chatId: Int,
                           ) extends TestCommand
-
-object TestShowCommand {
-  val pattern: Regex = "test show (.*?) (.*)".r
-}
 
 case class ChooseCommand(languageDirection: LanguageDirection, chatId: Int) extends Command
 
@@ -140,13 +133,21 @@ object RequestParser {
     callbackQuery.data match {
       case Some(data) =>
         val chatId = callbackQuery.from.id
-        data match {
-          case TestNextCommand.pattern(couldBeLanguageDirection) =>
-            parseLanguageDirection(couldBeLanguageDirection, TestNextCommand(_, chatId))
-          case TestShowCommand.pattern(couldBeLanguageDirection, text) =>
-            parseLanguageDirection(couldBeLanguageDirection, TestShowCommand(text, _, chatId))
-          case other: String =>
-            MalformedCommand(s"unknown callback data: '$other'")
+        Try {
+          val bytes = CallbackDataHelper.fromString(data)
+          CallbackRequest.parseFrom(bytes).data
+        } match {
+          case Success(value: CallbackData) =>
+            value match {
+              case TestNextData(langDir) =>
+                parseLanguageDirection(langDir, TestNextCommand(_, chatId))
+              case TestShowData(langDir, text) =>
+                parseLanguageDirection(langDir, TestShowCommand(text, _, chatId))
+              case CallbackData.Empty =>
+                EmptyCallbackData
+            }
+          case Failure(exception) =>
+            MalformedCommand(s"Failed to parse callback data: ${exception.toString}")
         }
       case None => EmptyCallbackData
     }

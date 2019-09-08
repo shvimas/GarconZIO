@@ -27,6 +27,11 @@ scalacOptions ++= Seq(
 
 mainClass in Compile := Some("dev.shvimas.garcon.Main")
 
+PB.protocVersion := "-v300"
+PB.targets in Compile := Seq(
+  scalapb.gen() -> (sourceManaged in Compile).value
+)
+
 enablePlugins(DockerPlugin)
 dockerfile in docker := {
   val rootJar: File = sbt.Keys.`package`.in(Compile, packageBin).value

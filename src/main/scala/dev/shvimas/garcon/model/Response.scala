@@ -1,6 +1,7 @@
 package dev.shvimas.garcon.model
 
 import dev.shvimas.garcon.database.model.CommonTranslation
+import dev.shvimas.garcon.model.proto.callback_data.{CallbackRequest, TestNextData, TestShowData}
 import dev.shvimas.translate.LanguageDirection
 
 sealed trait Response
@@ -21,13 +22,28 @@ case class TestNextResponse(maybeTranslation: Option[CommonTranslation],
 
 object TestNextResponse {
   def makeCallbackData(languageDirection: LanguageDirection): String = {
-    s"test next $languageDirection"
+    val data = TestNextData(
+      langDir = languageDirection.toString,
+    )
+    CallbackDataHelper.toString(CallbackRequest(data))
   }
 }
 
 case class TestShowResponse(maybeTranslation: Option[CommonTranslation],
                             languageDirection: LanguageDirection,
                            ) extends TestResponse
+
+object TestShowResponse {
+  def makeCallbackData(languageDirection: LanguageDirection,
+                       text: String,
+                      ): String = {
+    val data = TestShowData(
+      langDir = languageDirection.toString,
+      text = text,
+    )
+    CallbackDataHelper.toString(CallbackRequest(data))
+  }
+}
 
 sealed trait ChooseResponse extends Response
 

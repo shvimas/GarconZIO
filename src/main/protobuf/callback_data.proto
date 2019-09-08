@@ -1,0 +1,22 @@
+syntax = "proto3";
+package dev.shvimas.garcon.model.proto;
+
+message CallbackRequest {
+    CallbackData data = 1;
+}
+
+message CallbackData {
+    oneof sealed_value {
+        TestNextData next_data = 1;
+        TestShowData show_data = 2;
+    }
+}
+
+message TestNextData {
+    string lang_dir = 1;
+}
+
+message TestShowData {
+    string lang_dir = 1;
+    string text = 2;
+}

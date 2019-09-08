@@ -34,11 +34,13 @@ object BotInteraction {
                     def makeShowButton(translation: CommonTranslation,
                                        languageDirection: LanguageDirection,
                                       ): InlineKeyboardButton = {
-                      InlineKeyboardButton("Show", s"test show $languageDirection ${translation.text}")
+                      val data = TestShowResponse.makeCallbackData(languageDirection, translation.text)
+                      InlineKeyboardButton("Show", data)
                     }
 
                     def makeNextButton(languageDirection: LanguageDirection): InlineKeyboardButton = {
-                      InlineKeyboardButton("Next", s"test next $languageDirection")
+                      val data = TestNextResponse.makeCallbackData(languageDirection)
+                      InlineKeyboardButton("Next", data)
                     }
 
                     def makeReplyMarkup(translation: CommonTranslation,
