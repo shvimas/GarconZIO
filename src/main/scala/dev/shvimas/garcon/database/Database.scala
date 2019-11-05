@@ -1,6 +1,7 @@
 package dev.shvimas.garcon.database
 
 import dev.shvimas.garcon.database.model._
+import dev.shvimas.telegram.model.Result.SendMessageResult
 import dev.shvimas.translate.LanguageDirection
 import org.mongodb.scala.result.{DeleteResult, UpdateResult}
 import scalaz.zio.Task
@@ -32,4 +33,6 @@ trait Database {
   def deleteText(text: String, langDirection: LanguageDirection, chatId: Int): Task[DeleteResult]
 
   def getRandomWord(chatId: Int, languageDirection: LanguageDirection): Task[Option[CommonTranslation]]
+
+  def saveMessageResponse(chatId: Int, sendMessageResult: SendMessageResult): Task[UpdateResult]
 }

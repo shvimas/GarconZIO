@@ -1,19 +1,20 @@
 package dev.shvimas.garcon
 
 import cats.syntax.show._
-import com.typesafe.scalalogging.LazyLogging
 import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.model._
 import dev.shvimas.garcon.utils.ExceptionUtils.showThrowable
+import dev.shvimas.garcon.utils.ZIOLogger
 import dev.shvimas.telegram._
 import dev.shvimas.telegram.model.Result.{GetUpdatesResult, SendMessageResult}
 import dev.shvimas.telegram.model.Update
 import dev.shvimas.translate.LanguageDirection
+import org.mongodb.scala.result.UpdateResult
 import scalaz.zio.{ZIO, _}
 import scalaz.zio.clock.Clock
 import scalaz.zio.duration._
 
-object Main extends App with LazyLogging {
+object Main extends App {
 
   import BotInteraction._
   import CommonUtils._
@@ -39,7 +40,7 @@ object Main extends App with LazyLogging {
       .flatMap(offset =>
         ZIO.accessM[Bot](bot => ZIO.fromTry(bot.getUpdates(offset)))
       ).mapError(throwable =>
-      logger.error(
+      ZIOLogger.error(
         s"""While getting updates:
            |${throwable.show}""".stripMargin)
     ).option
@@ -76,34 +77,28 @@ object Main extends App with LazyLogging {
     sendResponses(results)
       .flatMap { sendResponsesResult: Seq[(Int, Either[Throwable, List[SendMessageResult]])] =>
         ZIO.collectAll(sendResponsesResult.map {
-          case (chatId, Left(throwable: Throwable)) =>
-            ZIO.effectTotal(
-              logger.error(
-                s"""Failed to send responses to $chatId:
-                   |${throwable.show}""".stripMargin))
-          case (chatId, Right(sendMessageResults: List[SendMessageResult])) =>
-            // TODO: resend if not ok?
-            ZIO.effectTotal(
-              logger.info(
-                s"""Send message results for $chatId:
-                   |${sendMessageResults.mkString("\n")}
-                   |""".stripMargin)
-            )
+          case (chatId, Left(throwable)) =>
+            ZIOLogger.error(s"Failed to send responses to $chatId:", throwable)
+          case (chatId, Right(sendMessageResults)) =>
+            def saveResult(result: SendMessageResult): ZIO[Database, Nothing, UpdateResult] = {
+              ZIO.accessM[Database](_.saveMessageResponse(chatId, result))
+                .flatMapError(ZIOLogger.error(s"While saving $result to database:", _))
+            }
+
+            for {
+              _ <- ZIOLogger.infoLines(s"Send message results for $chatId:", sendMessageResults.mkString("\n"))
+              _ <- ZIO.collectAllPar(sendMessageResults.map(saveResult))
+            } yield ()
         }
         ).map(unify)
       }
 
   def processTranslationRequest(request: TranslationRequest,
                                ): ZIO[Database with Translators, Throwable, TranslationResponse] = {
-    val text = request.text
-    val chatId = request.chatId
-    val messageId = request.messageId
-    resolveLangDirection(chatId)
-      .map(_.maybeReverse(text))
-      .flatMap(languageDirection =>
-        commonTranslation(text, languageDirection)
-          .map(TranslationWithInfo(_, languageDirection, messageId)))
-      .map(TranslationResponse)
+    for {
+      languageDirection <- resolveLangDirection(request.chatId).map(_.maybeReverse(request.text))
+      commonTranslation <- commonTranslation(request.text, languageDirection)
+    } yield TranslationResponse(TranslationWithInfo(commonTranslation, languageDirection, request.messageId))
   }
 
   def processDeleteCommand(command: DeleteCommand): ZIO[Database, Throwable, DeletionResponse] = {
@@ -214,7 +209,7 @@ object Main extends App with LazyLogging {
     )
 
   private def processOrphanUpdates(orphanUpdates: Seq[Update]): Unit = {
-    logger.warn(
+    ZIOLogger.warn(
       s"""Got updates from unknown chat:
          |${orphanUpdates.mkString("\n")}
          |
@@ -227,7 +222,7 @@ object Main extends App with LazyLogging {
       case (_, resultsPerUser: List[Either[ErrorWithInfo, Response]]) =>
         resultsPerUser.foreach {
           case Left(ErrorWithInfo(throwable, update)) =>
-            logger.error(
+            ZIOLogger.error(
               s"""While processing $update:
                  |${throwable.show}""".stripMargin)
           case Right(_) =>
