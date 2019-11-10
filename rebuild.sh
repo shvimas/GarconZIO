@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-git checkout aws-current
+git checkout deploy
 git pull
 docker-compose stop main
 sbt docker
