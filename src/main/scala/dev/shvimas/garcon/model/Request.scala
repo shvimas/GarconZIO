@@ -66,6 +66,21 @@ object DeleteByText {
   val pattern: Regex = "\\s+(.*)\\s+(.*)\\s*".r
 }
 
+case class DecapitalizeCommand(state: DecapitalizeCommand.State.Value) extends Command
+
+object DecapitalizeCommand {
+  val pattern: Regex = "decap\\s*(.*)\\s*".r
+
+  object State extends Enumeration {
+    val ON: State.Value = Value("on")
+    val OFF: State.Value = Value("off")
+
+    def parse(s: String): Option[State.Value] =
+      Try(withName(s)).toOption
+  }
+
+}
+
 case class MalformedCommand(desc: String) extends Command
 
 case class UnrecognisedCommand(desc: String) extends Command
@@ -124,6 +139,13 @@ object RequestParser {
         parseLanguageDirection(couldBeLanguageDirection, TestStartCommand(_, chatId))
       case ChooseCommand.pattern(couldBeLanguageDirection) =>
         parseLanguageDirection(couldBeLanguageDirection, ChooseCommand(_, chatId))
+      case DecapitalizeCommand.pattern(couldBeState) =>
+        DecapitalizeCommand.State.parse(couldBeState) match {
+          case Some(state) =>
+            DecapitalizeCommand(state)
+          case None =>
+            MalformedCommand(s"Failed to parse '$couldBeState'")
+        }
       case HelpCommand.pattern() => HelpCommand
       case other => UnrecognisedCommand(other)
     }

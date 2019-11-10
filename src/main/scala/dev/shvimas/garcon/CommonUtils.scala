@@ -1,6 +1,8 @@
 package dev.shvimas.garcon
 
-object CommonUtils {
+import com.typesafe.scalalogging.LazyLogging
+
+object CommonUtils extends LazyLogging {
   def unify(unitAndValue: (Unit, Unit)): Unit = ()
 
   def unify[T](unit1: Unit, t: T): T = t
@@ -8,4 +10,12 @@ object CommonUtils {
   def unify(units: Seq[Unit]): Unit = ()
 
   def unify(units: Either[Unit, Unit]): Unit = ()
+
+  def logErrorWithContext(contextWithThrowable: (String, Throwable)): Unit = {
+    val (context, throwable) = contextWithThrowable
+    logErrorWithContext(context, throwable)
+  }
+
+  def logErrorWithContext(context: String, throwable: Throwable): Unit =
+    logger.error(context, throwable)
 }

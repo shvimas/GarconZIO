@@ -178,7 +178,9 @@ object Mongo {
       maybeUserData.map { mongoUserData: MongoUserData =>
         UserData(
           chatId = mongoUserData.chatId,
-          languageDirection = mongoUserData.languageDirection.map(convertLanguageDirection))
+          languageDirection = mongoUserData.languageDirection.map(convertLanguageDirection),
+          decapitalization = mongoUserData.decapitalization,
+        )
       }
 
     def convertLanguageDirection(mongoLanguageDirection: MongoLanguageDirection): LanguageDirection =

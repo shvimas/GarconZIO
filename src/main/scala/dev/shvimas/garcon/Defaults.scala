@@ -8,6 +8,15 @@ object Defaults {
 
   val translatorName: String = CommonTranslationFields.abbyy
 
-  def userData(chatId: Int): UserData =
-    UserData(chatId = chatId, languageDirection = Some(languageDirection))
+  val decapitalization: Boolean = true
+
+  def userData(chatId: Int,
+               languageDirection: LanguageDirection = Defaults.languageDirection,
+               decapitalization: Boolean = Defaults.decapitalization
+              ): UserData =
+    UserData(
+      chatId = chatId,
+      languageDirection = Some(languageDirection),
+      decapitalization = Some(decapitalization),
+    )
 }

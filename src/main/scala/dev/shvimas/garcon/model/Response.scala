@@ -51,6 +51,8 @@ case class SuccessfulChooseResponse(languageDirection: LanguageDirection) extend
 
 case class FailedChooseResponse(description: String, languageDirection: LanguageDirection) extends ChooseResponse
 
+case class DecapitalizeResponse(state: DecapitalizeCommand.State.Value) extends Response
+
 object HelpResponse extends Response {
   val message: String =
     """Hi! I'm Garcon, your personal vocabulary trainer.

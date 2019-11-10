@@ -3,6 +3,7 @@ package dev.shvimas.garcon
 import cats.syntax.show._
 import com.typesafe.scalalogging.LazyLogging
 import dev.shvimas.garcon.database.Database
+import dev.shvimas.garcon.database.model.UserData
 import dev.shvimas.garcon.model._
 import dev.shvimas.garcon.utils.ExceptionUtils.showThrowable
 import dev.shvimas.telegram._
@@ -15,11 +16,11 @@ import scalaz.zio.duration._
 
 object Main extends App with LazyLogging {
 
-  import BotInteraction._
-  import CommonUtils._
-  import DatabaseInteraction._
-  import MainConfig._
-  import TranslatorsInteraction._
+  import dev.shvimas.garcon.BotInteraction._
+  import dev.shvimas.garcon.CommonUtils._
+  import dev.shvimas.garcon.DatabaseInteraction._
+  import dev.shvimas.garcon.MainConfig._
+  import dev.shvimas.garcon.TranslatorsInteraction._
 
   type GarconEnvironment = Bot with Database with Translators
 
@@ -95,15 +96,36 @@ object Main extends App with LazyLogging {
 
   def processTranslationRequest(request: TranslationRequest,
                                ): ZIO[Database with Translators, Throwable, TranslationResponse] = {
-    val text = request.text
-    val chatId = request.chatId
-    val messageId = request.messageId
-    resolveLangDirection(chatId)
-      .map(_.maybeReverse(text))
-      .flatMap(languageDirection =>
-        commonTranslation(text, languageDirection)
-          .map(TranslationWithInfo(_, languageDirection, messageId)))
-      .map(TranslationResponse)
+    for {
+      text <- prepareText(request.text, request.chatId)
+      languageDirection <- resolveLangDirection(request.chatId).map(_.maybeReverse(text))
+      commonTranslation <- commonTranslation(text, languageDirection)
+    } yield {
+      TranslationResponse(
+        TranslationWithInfo(
+          translation = commonTranslation,
+          languageDirection = languageDirection,
+          messageId = request.messageId,
+        )
+      )
+    }
+  }
+
+  def prepareText(text: String, chatId: Int): ZIO[Database, Throwable, String] = {
+    def decapitalize(maybeUserData: Option[UserData]): String = {
+      val maybeTransformed: Option[String] =
+        for {
+          userData <- maybeUserData
+          decap <- userData.decapitalization
+          if decap
+        } yield text.toLowerCase()
+      maybeTransformed.getOrElse(text)
+    }
+
+    for {
+      maybeUserData <- ZIO.accessM[Database](_.getUserData(chatId))
+      preparedText <- ZIO.effect(decapitalize(maybeUserData))
+    } yield preparedText
   }
 
   def processDeleteCommand(command: DeleteCommand): ZIO[Database, Throwable, DeletionResponse] = {
@@ -180,6 +202,8 @@ object Main extends App with LazyLogging {
         processTestCommand(command)
       case command: ChooseCommand =>
         processChooseRequest(command)
+      case DecapitalizeCommand(state) =>
+        ZIO.succeed(DecapitalizeResponse(state))
       case HelpCommand =>
         ZIO.succeed(HelpResponse)
       case MalformedCommand(desc) =>
