@@ -146,20 +146,25 @@ object Main extends App with LazyLogging {
     val result: ZIO[Database, Throwable, Either[String, String]] =
       command match {
         case DeleteByReply(reply, chatId) =>
-          reply.text match {
-            case Some(text) =>
-              ZIO.accessM[Database](_.findLanguageDirectionForMessage(chatId, text, reply.messageId))
-                .flatMap {
-                  case Some(languageDirection) =>
-                    deleteText(text, languageDirection, chatId)
-                  case None =>
-                    ZIO.succeed(Left(s"Couldn't delete $text (failed to find language direction)"))
-                }
+          reply.text.map(prepareText(_, chatId)) match {
+            case Some(zText) =>
+              zText.flatMap { text: String =>
+                ZIO.accessM[Database](_.findLanguageDirectionForMessage(chatId, text, reply.messageId))
+                  .flatMap {
+                    case Some(languageDirection) =>
+                      deleteText(text, languageDirection, chatId)
+                    case None =>
+                      ZIO.succeed(Left(s"Couldn't delete $text (failed to find language direction)"))
+                  }
+              }
             case None =>
               ZIO.succeed(Left("Couldn't delete (text is empty)"))
           }
         case DeleteByText(text, languageDirection, chatId) =>
-          deleteText(text, languageDirection, chatId)
+          for {
+            preparedText <- prepareText(text, chatId)
+            response <- deleteText(preparedText, languageDirection, chatId)
+          } yield response
       }
     result.map(DeletionResponse)
   }
