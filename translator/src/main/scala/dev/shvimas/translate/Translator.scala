@@ -1,7 +1,7 @@
 package dev.shvimas.translate
 
 import dev.shvimas.translate.LanguageCode.LanguageCode
-import scalaz.zio.Task
+import zio.Task
 
 import scala.util.Try
 

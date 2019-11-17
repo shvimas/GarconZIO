@@ -19,7 +19,7 @@ import org.mongodb.scala.model.Aggregates._
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Updates.{combine, max, set}
 import org.mongodb.scala.result.{DeleteResult, UpdateResult}
-import scalaz.zio.{Task, ZIO}
+import zio.{Task, ZIO}
 
 import scala.concurrent.Future
 

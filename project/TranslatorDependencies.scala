@@ -2,7 +2,7 @@ import sbt._
 
 object TranslatorDependencies {
   val all: Seq[ModuleID] = Seq(
-    "org.scalaz" %% "scalaz-zio" % Versions.zio,
+    "dev.zio" %% "zio" % Versions.zio,
     "org.typelevel" %% "cats-core" % Versions.catsCore,
     "org.json4s" %% "json4s-native" % Versions.json4s,
     "org.json4s" %% "json4s-ext" % Versions.json4s,

@@ -7,7 +7,7 @@ import dev.shvimas.telegram.Bot
 import dev.shvimas.telegram.model.{InlineKeyboardButton, InlineKeyboardMarkup}
 import dev.shvimas.telegram.model.Result.SendMessageResult
 import dev.shvimas.translate.LanguageDirection
-import scalaz.zio.ZIO
+import zio.ZIO
 
 object BotInteraction {
 

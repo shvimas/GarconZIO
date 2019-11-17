@@ -2,7 +2,7 @@ package dev.shvimas.zio.testing
 
 import org.scalactic.source.Position
 import org.scalatest._
-import scalaz.zio._
+import zio._
 
 trait ZioFunSuite extends FunSuite {
 

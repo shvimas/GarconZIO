@@ -5,7 +5,7 @@ import com.typesafe.scalalogging.LazyLogging
 import dev.shvimas.garcon.database.model.CommonTranslation
 import dev.shvimas.garcon.utils.ExceptionUtils.showThrowable
 import dev.shvimas.translate.LanguageDirection
-import scalaz.zio.ZIO
+import zio.ZIO
 
 object TranslatorsInteraction extends LazyLogging {
   def commonTranslation(text: String,

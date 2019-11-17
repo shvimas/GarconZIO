@@ -1,6 +1,6 @@
 object Versions {
   val catsCore = "1.6.0"
-  val zio = "1.0-RC5"
+  val zio = "1.0.0-RC16"
 
   val json4s = "3.6.5"
   val sttpCore = "1.5.11"

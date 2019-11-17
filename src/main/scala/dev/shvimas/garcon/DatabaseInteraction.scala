@@ -10,7 +10,7 @@ import dev.shvimas.garcon.model.{DecapitalizeCommand, _}
 import dev.shvimas.telegram.model.Result.GetUpdatesResult
 import dev.shvimas.translate.LanguageDirection
 import org.mongodb.scala.result.UpdateResult
-import scalaz.zio.ZIO
+import zio.ZIO
 
 object DatabaseInteraction extends StrictLogging {
 

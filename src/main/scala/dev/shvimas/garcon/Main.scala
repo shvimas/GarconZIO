@@ -10,9 +10,9 @@ import dev.shvimas.telegram._
 import dev.shvimas.telegram.model.Result.{GetUpdatesResult, SendMessageResult}
 import dev.shvimas.telegram.model.Update
 import dev.shvimas.translate.LanguageDirection
-import scalaz.zio.{ZIO, _}
-import scalaz.zio.clock.Clock
-import scalaz.zio.duration._
+import zio.{ZIO, _}
+import zio.clock.Clock
+import zio.duration._
 
 object Main extends App with LazyLogging {
 
