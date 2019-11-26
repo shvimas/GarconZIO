@@ -11,6 +11,7 @@ private[mongo] case class MongoLanguageDirection(@BsonProperty(Fields.source) so
 }
 
 object MongoLanguageDirection {
+
   def apply(languageDirection: LanguageDirection): MongoLanguageDirection =
     new MongoLanguageDirection(languageDirection.source, languageDirection.target)
 }

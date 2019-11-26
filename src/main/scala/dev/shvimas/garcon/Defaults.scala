@@ -12,11 +12,11 @@ object Defaults {
 
   def userData(chatId: Int,
                languageDirection: LanguageDirection = Defaults.languageDirection,
-               decapitalization: Boolean = Defaults.decapitalization
-              ): UserData =
+               decapitalization: Boolean = Defaults.decapitalization,
+  ): UserData =
     UserData(
-      chatId = chatId,
-      languageDirection = Some(languageDirection),
-      decapitalization = Some(decapitalization),
+        chatId = chatId,
+        languageDirection = Some(languageDirection),
+        decapitalization = Some(decapitalization),
     )
 }

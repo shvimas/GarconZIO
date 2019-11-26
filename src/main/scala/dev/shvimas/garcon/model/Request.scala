@@ -9,10 +9,7 @@ import scala.util.matching.Regex
 
 sealed trait Request
 
-case class TranslationRequest(text: String,
-                              chatId: Int,
-                              messageId: Int,
-                             ) extends Request
+case class TranslationRequest(text: String, chatId: Int, messageId: Int) extends Request
 
 sealed trait Command extends Request
 
@@ -34,10 +31,8 @@ object TestStartCommand {
 
 case class TestNextCommand(languageDirection: LanguageDirection, chatId: Int) extends TestCommand
 
-case class TestShowCommand(text: String,
-                           languageDirection: LanguageDirection,
-                           chatId: Int,
-                          ) extends TestCommand
+case class TestShowCommand(text: String, languageDirection: LanguageDirection, chatId: Int)
+    extends TestCommand
 
 case class ChooseCommand(languageDirection: LanguageDirection, chatId: Int) extends Command
 
@@ -57,10 +52,8 @@ object DeleteByReply {
   val pattern: Regex = "\\s*".r
 }
 
-case class DeleteByText(text: String,
-                        languageDirection: LanguageDirection,
-                        chatId: Int,
-                       ) extends DeleteCommand
+case class DeleteByText(text: String, languageDirection: LanguageDirection, chatId: Int)
+    extends DeleteCommand
 
 object DeleteByText {
   val pattern: Regex = "\\s+(.*)\\s+(.*)\\s*".r
@@ -72,7 +65,7 @@ object DecapitalizeCommand {
   val pattern: Regex = "decap\\s*(.*)\\s*".r
 
   object State extends Enumeration {
-    val ON: State.Value = Value("on")
+    val ON: State.Value  = Value("on")
     val OFF: State.Value = Value("off")
 
     def parse(s: String): Option[State.Value] =
@@ -91,8 +84,8 @@ case object EmptyCallbackData extends Request
 
 case object EmptyMessage extends Request
 
-
 object RequestParser {
+
   def parseUpdate(update: Update): Request =
     update.message match {
       case Some(message) =>
@@ -114,9 +107,9 @@ object RequestParser {
           case Command.pattern(command) => parseCommand(command, message)
           case toBeTranslated =>
             TranslationRequest(
-              text = toBeTranslated,
-              chatId = message.chat.id,
-              messageId = message.messageId,
+                text = toBeTranslated,
+                chatId = message.chat.id,
+                messageId = message.messageId,
             )
         }
     }
@@ -129,7 +122,7 @@ object RequestParser {
           case DeleteByReply.pattern() =>
             message.replyToMessage match {
               case Some(replyTo) => DeleteByReply(replyTo, chatId)
-              case None => MalformedCommand("got nothing to delete")
+              case None          => MalformedCommand("got nothing to delete")
             }
           case DeleteByText.pattern(word, couldBeLanguageDirection) =>
             parseLanguageDirection(couldBeLanguageDirection, DeleteByText(word, _, chatId))
@@ -147,11 +140,11 @@ object RequestParser {
             MalformedCommand(s"Failed to parse '$couldBeState'")
         }
       case HelpCommand.pattern() => HelpCommand
-      case other => UnrecognisedCommand(other)
+      case other                 => UnrecognisedCommand(other)
     }
   }
 
-  def parseCallbackQuery(callbackQuery: CallbackQuery): Request = {
+  def parseCallbackQuery(callbackQuery: CallbackQuery): Request =
     callbackQuery.data match {
       case Some(data) =>
         val chatId = callbackQuery.from.id
@@ -173,16 +166,14 @@ object RequestParser {
         }
       case None => EmptyCallbackData
     }
-  }
 
   private def parseLanguageDirection[T <: Command](couldBeLanguageDirection: String,
                                                    makeT: LanguageDirection => T,
-                                                  ): Command = {
+  ): Command =
     LanguageDirection.parse(couldBeLanguageDirection) match {
       case Some(languageDirection) =>
         makeT(languageDirection)
       case None =>
         MalformedCommand(s"bad language direction: $couldBeLanguageDirection")
     }
-  }
 }

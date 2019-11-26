@@ -38,33 +38,38 @@ object Mongo {
     protected val usersDataColl: MongoCollection[MongoUserData] =
       garconDb.getCollection(CollName.usersData)
 
-    protected def fromFuture[R, E, A](future: => Future[A]): Task[A] =
+    protected def fromFuture[A](future: => Future[A]): Task[A] =
       ZIO.fromFuture(implicit ec => future)
 
+    implicit protected class RichSingleObservable[T](inner: SingleObservable[T]) {
+      def toTask: Task[T]               = fromFuture(inner.toFuture())
+      def toOptionTask: Task[Option[T]] = fromFuture(inner.toFutureOption())
+    }
+
+    implicit protected class RichObservable[T](inner: Observable[T]) {
+      def toSeqTask: Task[Seq[T]]       = fromFuture(inner.toFuture())
+      def toOptionTask: Task[Option[T]] = fromFuture(inner.headOption())
+    }
+
     def getGlobals: Task[Option[MongoGlobals]] =
-      fromFuture(
-        globalsColl
-          .find()
-          .first()
-          .toFutureOption()
-      )
+      globalsColl
+        .find()
+        .first()
+        .toOptionTask
 
     override def updateOffset(offset: Long): Task[UpdateResult] =
-      fromFuture({
-        logger.debug(s"Updating offset to $offset")
-        globalsColl
-          .updateOne(
+      globalsColl
+        .updateOne(
             filter = emptyBson,
             update = max(GlobalsFields.offset, offset),
             options = upsert
-          )
-          .toFuture()
-      })
+        )
+        .toTask
 
     override def getOffset: Task[Long] =
       getGlobals map {
         case Some(globals) => globals.offset.getOrElse(0)
-        case None => 0
+        case None          => 0
       }
 
     private def getWordsColl(chatId: Int): MongoCollection[MongoCommonTranslation] =
@@ -73,120 +78,130 @@ object Mongo {
     override def lookUpText(text: String,
                             languageDirection: LanguageDirection,
                             chatId: Int,
-                           ): Task[Option[CommonTranslation]] =
-      fromFuture(
-        getWordsColl(chatId)
-          .find(filter = combine(
-            equal(CommonTranslationFields.text, text),
-            equal(CommonTranslationFields.languageDirection, MongoLanguageDirection(languageDirection))))
-          .first()
-          .map(_.toCommonTranslation)
-          .headOption()
-      )
+    ): Task[Option[CommonTranslation]] =
+      getWordsColl(chatId)
+        .find(
+            filter = combine(
+                equal(CommonTranslationFields.text, text),
+                equal(
+                    CommonTranslationFields.languageDirection,
+                    MongoLanguageDirection(languageDirection)
+                )
+            )
+        )
+        .first()
+        .map(_.toCommonTranslation)
+        .toOptionTask
 
     override def addCommonTranslation(translation: CommonTranslation,
                                       chatId: Int,
                                       languageDirection: LanguageDirection,
                                       messageId: Int,
-                                     ): Task[UpdateResult] = {
+    ): Task[UpdateResult] = {
       val mongoLanguageDirection = MongoLanguageDirection(languageDirection)
-      fromFuture(
-        getWordsColl(chatId)
-          .replaceOne(
+      getWordsColl(chatId)
+        .replaceOne(
             filter = combine(
-              equal(CommonTranslationFields.text, translation.originalText),
-              equal(CommonTranslationFields.languageDirection, mongoLanguageDirection)),
+                equal(CommonTranslationFields.text, translation.originalText),
+                equal(CommonTranslationFields.languageDirection, mongoLanguageDirection)
+            ),
             replacement = MongoCommonTranslation(translation, mongoLanguageDirection, messageId),
             options = repsert
-          )
-          .toFuture()
-      )
+        )
+        .toTask
     }
 
     override def deleteText(text: String,
                             langDirection: LanguageDirection,
                             chatId: Int,
-                           ): Task[DeleteResult] =
-      fromFuture(
-        getWordsColl(chatId)
-          .deleteOne(filter = combine(
-            equal(CommonTranslationFields.text, text),
-            equal(CommonTranslationFields.languageDirection, MongoLanguageDirection(langDirection))))
-          .toFuture()
-      )
+    ): Task[DeleteResult] =
+      getWordsColl(chatId)
+        .deleteOne(
+            filter = combine(
+                equal(CommonTranslationFields.text, text),
+                equal(
+                    CommonTranslationFields.languageDirection,
+                    MongoLanguageDirection(langDirection)
+                )
+            )
+        )
+        .toTask
 
     override def getUserData(chatId: Int): Task[Option[UserData]] =
-      fromFuture(
-        usersDataColl
-          .find(filter = equal(UserDataFields.chatId, chatId))
-          .first()
-          .toFutureOption()
-      ).map(convertUserData)
+      usersDataColl
+        .find(filter = equal(UserDataFields.chatId, chatId))
+        .first()
+        .toOptionTask
+        .map(convertUserData)
 
     override def setUserData(userData: UserData): Task[UpdateResult] =
-      fromFuture(
-        usersDataColl
-          .replaceOne(
+      usersDataColl
+        .replaceOne(
             filter = equal(UserDataFields.chatId, userData.chatId),
             replacement = MongoUserData(userData),
             repsert,
-          ).toFuture()
-      )
+        )
+        .toTask
 
     override def setLanguageDirection(chatId: Int,
                                       languageDirection: LanguageDirection,
-                                     ): Task[UpdateResult] =
-      fromFuture(
-        usersDataColl.updateOne(
-          equal(UserDataFields.chatId, chatId),
-          set(UserDataFields.langDir, MongoLanguageDirection(languageDirection)),
-          upsert
-        ).toFuture()
-      )
+    ): Task[UpdateResult] =
+      usersDataColl
+        .updateOne(
+            equal(UserDataFields.chatId, chatId),
+            set(UserDataFields.langDir, MongoLanguageDirection(languageDirection)),
+            upsert
+        )
+        .toTask
 
     override def findLanguageDirectionForMessage(chatId: Int,
                                                  text: String,
                                                  messageId: Int,
-                                                ): Task[Option[LanguageDirection]] =
-      fromFuture(
-        getWordsColl(chatId)
-          .find(
+    ): Task[Option[LanguageDirection]] =
+      getWordsColl(chatId)
+        .find(
             combine(
-              equal(CommonTranslationFields.text, text),
-              equal(CommonTranslationFields.messageId, messageId))
-          )
-          .map(_.languageDirection.toLanguageDirection)
-          .headOption()
-      )
+                equal(CommonTranslationFields.text, text),
+                equal(CommonTranslationFields.messageId, messageId)
+            )
+        )
+        .map(_.languageDirection.toLanguageDirection)
+        .toOptionTask
 
     override def getRandomWord(chatId: Int,
                                languageDirection: LanguageDirection,
-                              ): Task[Option[CommonTranslation]] =
-      fromFuture(
-        getWordsColl(chatId)
-          .aggregate(Seq(
-            `match`(equal(CommonTranslationFields.languageDirection, MongoLanguageDirection(languageDirection))),
-            sample(1),
-          ))
-          .map(_.toCommonTranslation)
-          .headOption()
-      )
+    ): Task[Option[CommonTranslation]] =
+      getWordsColl(chatId)
+        .aggregate(
+            Seq(
+                `match`(
+                    equal(
+                        CommonTranslationFields.languageDirection,
+                        MongoLanguageDirection(languageDirection)
+                    )
+                ),
+                sample(1),
+            )
+        )
+        .map(_.toCommonTranslation)
+        .toOptionTask
   }
 
   private object Helpers {
+
     def convertUserData(maybeUserData: Option[MongoUserData]): Option[UserData] =
       maybeUserData.map { mongoUserData: MongoUserData =>
         UserData(
-          chatId = mongoUserData.chatId,
-          languageDirection = mongoUserData.languageDirection.map(convertLanguageDirection),
-          decapitalization = mongoUserData.decapitalization,
+            chatId = mongoUserData.chatId,
+            languageDirection = mongoUserData.languageDirection.map(convertLanguageDirection),
+            decapitalization = mongoUserData.decapitalization,
         )
       }
 
     def convertLanguageDirection(mongoLanguageDirection: MongoLanguageDirection): LanguageDirection =
       LanguageDirection(
-        source = mongoLanguageDirection.source,
-        target = mongoLanguageDirection.target,
+          source = mongoLanguageDirection.source,
+          target = mongoLanguageDirection.target,
       )
 
   }
@@ -194,20 +209,18 @@ object Mongo {
   private object Config {
     val username: String = config.getString("mongo.username")
     val password: String = config.getString("mongo.password")
-    val host: String = config.getString("mongo.host")
-    val port: Int = config.getInt("mongo.port")
+    val host: String     = config.getString("mongo.host")
+    val port: Int        = config.getInt("mongo.port")
 
-    val connectionString = new ConnectionString(
-      s"mongodb://$username:$password@$host:$port"
-    )
+    val connectionString = new ConnectionString(s"mongodb://$username:$password@$host:$port")
 
     val caseClassCodecs: CodecRegistry =
       fromProviders(
-        classOf[MongoGlobals],
-        classOf[MongoUserData],
-        classOf[MongoCommonTranslation],
-        classOf[MongoLanguageDirection],
-        LanguageCodeCodecProvider
+          classOf[MongoGlobals],
+          classOf[MongoUserData],
+          classOf[MongoCommonTranslation],
+          classOf[MongoLanguageDirection],
+          LanguageCodeCodecProvider
       )
 
     val codecRegistry: CodecRegistry =
@@ -224,11 +237,11 @@ object Mongo {
 
     val emptyBson = BsonDocument()
 
-    val upsert: UpdateOptions = new UpdateOptions().upsert(true)
+    val upsert: UpdateOptions   = new UpdateOptions().upsert(true)
     val repsert: ReplaceOptions = new ReplaceOptions().upsert(true)
 
     object CollName {
-      val globals = "globals"
+      val globals   = "globals"
       val usersData = "users_data"
     }
 

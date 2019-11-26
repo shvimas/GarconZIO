@@ -19,20 +19,19 @@ object Translators {
 
     import Live._
 
-    override val abbyyTranslator: Translator = AbbyyTranslator(abbyyApiKey)
+    override val abbyyTranslator: Translator  = AbbyyTranslator(abbyyApiKey)
     override val yandexTranslator: Translator = YandexTranslator(yandexApiKey)
 
-
     override val supportedTranslators: Map[String, Translator] = Map(
-      CommonTranslationFields.abbyy -> abbyyTranslator,
-      CommonTranslationFields.yandex -> yandexTranslator,
+        CommonTranslationFields.abbyy  -> abbyyTranslator,
+        CommonTranslationFields.yandex -> yandexTranslator,
     )
 
     override val defaultTranslator: Translator = supportedTranslators(Defaults.translatorName)
   }
 
   private object Live {
-    val abbyyApiKey: String = config.getString("abbyy.apiKey")
+    val abbyyApiKey: String  = config.getString("abbyy.apiKey")
     val yandexApiKey: String = config.getString("yandex.apiKey")
   }
 

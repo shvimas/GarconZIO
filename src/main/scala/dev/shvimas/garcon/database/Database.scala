@@ -14,12 +14,12 @@ trait Database {
                            chatId: Int,
                            languageDirection: LanguageDirection,
                            messageId: Int,
-                          ): Task[UpdateResult]
+  ): Task[UpdateResult]
 
   def lookUpText(text: String,
                  languageDirection: LanguageDirection,
                  chatId: Int,
-                ): Task[Option[CommonTranslation]]
+  ): Task[Option[CommonTranslation]]
 
   def getUserData(chatId: Int): Task[Option[UserData]]
 
@@ -27,7 +27,9 @@ trait Database {
 
   def setLanguageDirection(chatId: Int, languageDirection: LanguageDirection): Task[UpdateResult]
 
-  def findLanguageDirectionForMessage(chatId: Int, text: String, messageId: Int): Task[Option[LanguageDirection]]
+  def findLanguageDirectionForMessage(chatId: Int,
+                                      text: String,
+                                      messageId: Int): Task[Option[LanguageDirection]]
 
   def deleteText(text: String, langDirection: LanguageDirection, chatId: Int): Task[DeleteResult]
 

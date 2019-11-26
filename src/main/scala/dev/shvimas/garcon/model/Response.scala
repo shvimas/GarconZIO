@@ -14,16 +14,17 @@ sealed trait TestResponse extends Response
 
 case class TestStartResponse(maybeTranslation: Option[CommonTranslation],
                              languageDirection: LanguageDirection,
-                            ) extends TestResponse
+) extends TestResponse
 
 case class TestNextResponse(maybeTranslation: Option[CommonTranslation],
                             languageDirection: LanguageDirection,
-                           ) extends TestResponse
+) extends TestResponse
 
 object TestNextResponse {
+
   def makeCallbackData(languageDirection: LanguageDirection): String = {
     val data = TestNextData(
-      langDir = languageDirection.toString,
+        langDir = languageDirection.toString,
     )
     CallbackDataHelper.toString(CallbackRequest(data))
   }
@@ -31,15 +32,14 @@ object TestNextResponse {
 
 case class TestShowResponse(maybeTranslation: Option[CommonTranslation],
                             languageDirection: LanguageDirection,
-                           ) extends TestResponse
+) extends TestResponse
 
 object TestShowResponse {
-  def makeCallbackData(languageDirection: LanguageDirection,
-                       text: String,
-                      ): String = {
+
+  def makeCallbackData(languageDirection: LanguageDirection, text: String): String = {
     val data = TestShowData(
-      langDir = languageDirection.toString,
-      text = text,
+        langDir = languageDirection.toString,
+        text = text,
     )
     CallbackDataHelper.toString(CallbackRequest(data))
   }
@@ -49,11 +49,13 @@ sealed trait ChooseResponse extends Response
 
 case class SuccessfulChooseResponse(languageDirection: LanguageDirection) extends ChooseResponse
 
-case class FailedChooseResponse(description: String, languageDirection: LanguageDirection) extends ChooseResponse
+case class FailedChooseResponse(description: String, languageDirection: LanguageDirection)
+    extends ChooseResponse
 
 case class DecapitalizeResponse(state: DecapitalizeCommand.State.Value) extends Response
 
 object HelpResponse extends Response {
+
   val message: String =
     """Hi! I'm Garcon, your personal vocabulary trainer.
       |Just send me anything and I'll translate it for you!

@@ -11,20 +11,21 @@ private[mongo] case class MongoCommonTranslation(@BsonProperty(Fields.text)
                                                  translations: Map[String, String],
                                                  @BsonProperty(Fields.languageDirection)
                                                  languageDirection: MongoLanguageDirection) {
+
   def toCommonTranslation: CommonTranslation =
     CommonTranslation(text, translations)
 }
 
 object MongoCommonTranslation {
+
   def apply(commonTranslation: CommonTranslation,
             languageDirection: MongoLanguageDirection,
             messageId: Int,
-           ): MongoCommonTranslation =
+  ): MongoCommonTranslation =
     MongoCommonTranslation(
-      text = commonTranslation.text,
-      messagedId = Some(messageId),
-      translations = commonTranslation.translations,
-      languageDirection = languageDirection,
+        text = commonTranslation.text,
+        messagedId = Some(messageId),
+        translations = commonTranslation.translations,
+        languageDirection = languageDirection,
     )
 }
-

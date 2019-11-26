@@ -3,9 +3,9 @@ package dev.shvimas.garcon
 import com.typesafe.scalalogging.LazyLogging
 
 object CommonUtils extends LazyLogging {
-  def unify(unitAndValue: (Unit, Unit)): Unit = ()
+  def unify(units: (Unit, Unit)): Unit = ()
 
-  def unify[T](unit1: Unit, t: T): T = t
+  def unify[T](unit: Unit, t: T): T = t
 
   def unify(units: Seq[Unit]): Unit = ()
 

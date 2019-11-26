@@ -11,18 +11,18 @@ import scala.util.Try
 object MainConfig extends LazyLogging {
   lazy val config: Config = ConfigFactory.parseResourcesAnySyntax("private/secrets.conf")
 
-  lazy private val botToken = config.getString("bot.token")
+  private lazy val botToken = config.getString("bot.token")
 
-  lazy private val proxySettings: Option[SocksProxy] =
+  private lazy val proxySettings: Option[SocksProxy] =
     Try {
       val proxyAuth = ProxyAuthUsernamePassword(
-        username = config.getString("proxy.username"),
-        password = config.getString("proxy.password")
+          username = config.getString("proxy.username"),
+          password = config.getString("proxy.password")
       )
       SocksProxy(
-        host = config.getString("proxy.host"),
-        port = config.getInt("proxy.port"),
-        auth = Some(proxyAuth)
+          host = config.getString("proxy.host"),
+          port = config.getInt("proxy.port"),
+          auth = Some(proxyAuth)
       )
     }.toOption
 
@@ -30,7 +30,7 @@ object MainConfig extends LazyLogging {
     logger.warn("Telegram proxy settings not found!")
   }
 
-  lazy private val botSettings = TelegramBotSettings(botToken, proxySettings)
+  private lazy val botSettings = TelegramBotSettings(botToken, proxySettings)
 
   lazy val environment: Bot with Database with Translators =
     new TelegramBot(botSettings) with Mongo.Instance with Translators.Live
