@@ -4,19 +4,21 @@ version := "0.1-SNAPSHOT"
 
 scalaVersion := "2.12.8"
 
-lazy val zioTesting = project in file("zio_testing")
-zioTesting / libraryDependencies ++= ZioTestingDependencies.all
+lazy val zioTestFramework = new TestFramework("zio.test.sbt.ZTestFramework")
 
-lazy val translator = (project in file("translator"))
-  .dependsOn(zioTesting % "test->compile")
+lazy val translator = project in file("translator")
 translator / libraryDependencies ++= TranslatorDependencies.all
+translator / testFrameworks += zioTestFramework
 
 lazy val telegram = project in file("telegram")
 telegram / libraryDependencies ++= TelegramDependencies.all
+telegram / testFrameworks += zioTestFramework
 
 lazy val root = (project in file("."))
-  .dependsOn(translator, telegram, zioTesting % "test->compile")
+  .dependsOn(translator, telegram)
+  .aggregate(translator, telegram)
 root / libraryDependencies ++= Dependencies.all
+root / testFrameworks += zioTestFramework
 
 scalacOptions ++= Seq(
     "-feature",
@@ -37,7 +39,6 @@ dockerfile in docker := {
   val rootJar: File  = sbt.Keys.`package`.in(Compile, packageBin).value
   val appDir: String = "/app/"
   val rootJarString  = s"$appDir/${rootJar.getName}"
-
   val mainClassName: String =
     mainClass
       .in(Compile, packageBin)

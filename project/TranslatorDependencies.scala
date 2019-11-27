@@ -10,6 +10,7 @@ object TranslatorDependencies {
     "com.typesafe" % "config" % Versions.config,
 
     "org.scalatest" %% "scalatest" % Versions.scalaTest % Test,
-    "com.lihaoyi" %% "pprint" % Versions.pprint % Test,
+    "dev.zio" %% "zio-test" % Versions.zio % Test,
+    "dev.zio" %% "zio-test-sbt" % Versions.zio % Test
   )
 }

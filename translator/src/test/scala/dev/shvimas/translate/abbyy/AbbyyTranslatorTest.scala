@@ -1,38 +1,35 @@
 package dev.shvimas.translate.abbyy
 
-import dev.shvimas.translate.{Common, LanguageDirection, Translation}
-import dev.shvimas.zio.testing.ZioFunSuite
+import dev.shvimas.translate.{Common, LanguageDirection}
+import zio.test._
+import zio.test.Assertion._
 
-class AbbyyTranslatorTest extends ZioFunSuite {
-
+private object Env {
   private val apiKey = Common.config.getString("abbyy.testApiKey")
-
-  val translator: AbbyyTranslator = AbbyyTranslator(apiKey)
-  assert(translator.newToken.isSuccess)
-
-  testZio("translate ru-en") {
-    val text = "обработать"
-    val languageDirection = LanguageDirection.RU_EN
-
-    translator
-      .translate(text, languageDirection)
-      .makeTestEffect((translation: Translation) => {
-        println(translation)
-        assert(translation.originalText == text)
-        assert(translation.translatedText == "work (up), process; treat; machine")
-      })
-  }
-
-  testZio("translate en-ru") {
-    val text = "cat"
-    val languageDirection = LanguageDirection.EN_RU
-
-    translator
-      .translate(text, languageDirection)
-      .makeTestEffect((translation: Translation) => {
-        println(translation)
-        assert(translation.originalText == text)
-        assert(translation.translatedText == "кот, кошка")
-      })
-  }
+  val translator     = new AbbyyTranslator(apiKey)
 }
+
+object AbbyyTranslatorTest
+    extends DefaultRunnableSpec(
+        suite("ABBYY integration suite")(
+            test("get new token") {
+              assert(Env.translator.newToken.isSuccess, isTrue)
+            },
+            testM("translate ru-en")(
+                Common.makeTranslationTest(
+                    translator = Env.translator,
+                    text = "обработать",
+                    languageDirection = LanguageDirection.RU_EN,
+                    expectedTranslation = "work (up), process; treat; machine"
+                )
+            ),
+            testM("translate en-ru")(
+                Common.makeTranslationTest(
+                    translator = Env.translator,
+                    text = "cat",
+                    languageDirection = LanguageDirection.EN_RU,
+                    expectedTranslation = "кот, кошка"
+                )
+            ),
+        )
+    )

@@ -1,38 +1,31 @@
 package dev.shvimas.translate.yandex
 
 import dev.shvimas.translate._
-import dev.shvimas.zio.testing.ZioFunSuite
+import zio.test._
 
-class YandexTranslatorTest extends ZioFunSuite {
-
+private object Env {
   private val apiKey = Common.config.getString("yandex.testApiKey")
-
-  val translator: Translator = YandexTranslator(apiKey)
-
-  testZio("translate ru-en") {
-    val text = "обработать"
-    val languageDirection = LanguageDirection.RU_EN
-
-    translator
-      .translate(text, languageDirection)
-      .makeTestEffect((translation: Translation) => {
-        println(translation)
-        assert(translation.originalText == text)
-        assert(translation.translatedText == "processing")
-      })
-  }
-
-  testZio("translate en-ru") {
-    val text = "apron"
-    val languageDirection = LanguageDirection.EN_RU
-
-    translator
-      .translate(text, languageDirection)
-      .makeTestEffect((translation: Translation) => {
-        println(translation)
-        assert(translation.originalText == text)
-        assert(translation.translatedText == "фартук")
-      })
-  }
-
+  val translator     = new YandexTranslator(apiKey)
 }
+
+object YandexTranslatorTest
+    extends DefaultRunnableSpec(
+        suite("Yandex integration suite")(
+            testM("translate ru-en")(
+                Common.makeTranslationTest(
+                    translator = Env.translator,
+                    text = "обработать",
+                    languageDirection = LanguageDirection.RU_EN,
+                    expectedTranslation = "processing"
+                )
+            ),
+            testM("translate en-ru")(
+                Common.makeTranslationTest(
+                    translator = Env.translator,
+                    text = "apron",
+                    languageDirection = LanguageDirection.EN_RU,
+                    expectedTranslation = "фартук"
+                )
+            ),
+        )
+    )

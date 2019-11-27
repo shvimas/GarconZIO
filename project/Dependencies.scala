@@ -12,9 +12,10 @@ object Dependencies {
     "ch.qos.logback" % "logback-classic" % Versions.logback,
 
     "org.scalatest" %% "scalatest" % Versions.scalaTest % Test,
-    "com.lihaoyi" %% "pprint" % Versions.pprint % Test,
+    "dev.zio" %% "zio-test" % Versions.zio % Test,
+    "dev.zio" %% "zio-test-sbt" % Versions.zio % Test,
 
     // magical import, adds missing javax.annotation contents needed in com.mongodb.lang.Nullable.java
-    "com.google.code.findbugs" % "jsr305" % Versions.jsr305,
+    "com.google.code.findbugs" % "jsr305" % Versions.jsr305
   )
 }
