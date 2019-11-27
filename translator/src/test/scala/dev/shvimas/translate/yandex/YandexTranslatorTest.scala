@@ -18,7 +18,7 @@ class YandexTranslatorTest extends ZioFunSuite {
       .makeTestEffect((translation: Translation) => {
         println(translation)
         assert(translation.originalText == text)
-        assert(translation.translatedText == "work (up), process; treat; machine")
+        assert(translation.translatedText == "processing")
       })
   }
 

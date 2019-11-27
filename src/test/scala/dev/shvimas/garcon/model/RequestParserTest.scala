@@ -14,20 +14,20 @@ class RequestParserTest extends FunSuite {
   test("translate") {
     val text = "some text"
     val message = makeMessage(text, None)
-    doTest(message, TranslationRequest(text, 101, 1337))
+    doTest(message, TranslationRequest(text, 1337, 1))
   }
 
   test("delete by reply") {
     val text = "/delete"
     val reply = makeMessage("to be deleted", None)
     val message = makeMessage(text, Some(reply))
-    doTest(message, DeleteByReply(reply, 101))
+    doTest(message, DeleteByReply(reply, 1337))
   }
 
   test("delete by lang dir") {
     val text = "/delete test en-ru"
     val message = makeMessage(text, None)
-    doTest(message, DeleteByText("test", LanguageDirection.EN_RU, 101))
+    doTest(message, DeleteByText("test", LanguageDirection.EN_RU, 1337))
   }
 
   test("bad delete by lang dir") {
