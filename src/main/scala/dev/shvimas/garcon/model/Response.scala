@@ -2,6 +2,7 @@ package dev.shvimas.garcon.model
 
 import dev.shvimas.garcon.database.model.CommonTranslation
 import dev.shvimas.garcon.model.proto.callback_data.{CallbackRequest, TestNextData, TestShowData}
+import dev.shvimas.telegram.model.Update
 import dev.shvimas.translate.LanguageDirection
 
 sealed trait Response
@@ -86,6 +87,8 @@ object EmptyUpdateResponse extends ErrorResponse
 object EmptyCallbackDataResponse extends ErrorResponse
 
 object EmptyMessageResponse extends ErrorResponse
+
+case class BothMessageAndCallbackResponse(update: Update) extends ErrorResponse
 
 case class TranslationWithInfo(translation: CommonTranslation,
                                languageDirection: LanguageDirection,

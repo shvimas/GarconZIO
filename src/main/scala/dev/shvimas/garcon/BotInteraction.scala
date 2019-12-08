@@ -102,6 +102,10 @@ object BotInteraction {
                       "Got an empty message"
                     case EmptyCallbackDataResponse =>
                       "Got an empty callback data"
+                    case BothMessageAndCallbackResponse(update) =>
+                      s"""Got an update with
+                         |  message ${update.message}
+                         |  callback query ${update.callbackQuery}""".stripMargin
                   }
               }
               sendMessage(chatId, response, replyMarkup)

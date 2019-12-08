@@ -3,6 +3,7 @@ package dev.shvimas.garcon.model
 import dev.shvimas.garcon.model.proto.callback_data._
 import dev.shvimas.telegram.model.{CallbackQuery, Message, Update}
 import dev.shvimas.translate.LanguageDirection
+import zio.ZIO
 
 import scala.util.{Failure, Success, Try}
 import scala.util.matching.Regex
@@ -84,32 +85,32 @@ case object EmptyCallbackData extends Request
 
 case object EmptyMessage extends Request
 
+case object BothMessageAndCallback extends Request
+
 object RequestParser {
 
-  def parseUpdate(update: Update): Request =
-    update.message match {
-      case Some(message) =>
-        parseMessage(message)
-      case None =>
-        update.callbackQuery match {
-          case Some(callbackQuery) =>
-            parseCallbackQuery(callbackQuery)
-          case None =>
-            EmptyUpdate
-        }
+  def parseUpdate(update: Update): ZIO[Any, Throwable, Request] =
+    update match {
+      case Update(_, Some(message), None)       => parseMessage(message)
+      case Update(_, None, Some(callbackQuery)) => parseCallbackQuery(callbackQuery)
+      case Update(_, None, None)                => ZIO.succeed(EmptyUpdate)
+      case Update(_, Some(_), Some(_))          => ZIO.succeed(BothMessageAndCallback)
     }
 
-  def parseMessage(message: Message): Request =
+  private[model] def parseMessage(message: Message): ZIO[Any, Throwable, Request] =
     message.text match {
-      case None => EmptyMessage
+      case None => ZIO.succeed(EmptyMessage)
       case Some(text) =>
         text match {
-          case Command.pattern(command) => parseCommand(command, message)
+          case Command.pattern(command) =>
+            ZIO.effect(parseCommand(command, message))
           case toBeTranslated =>
-            TranslationRequest(
-                text = toBeTranslated,
-                chatId = message.chat.id,
-                messageId = message.messageId,
+            ZIO.effect(
+                TranslationRequest(
+                    text = toBeTranslated,
+                    chatId = message.chat.id,
+                    messageId = message.messageId,
+                )
             )
         }
     }
@@ -144,7 +145,7 @@ object RequestParser {
     }
   }
 
-  def parseCallbackQuery(callbackQuery: CallbackQuery): Request =
+  private[model] def parseCallbackQuery(callbackQuery: CallbackQuery): ZIO[Any, Throwable, Request] =
     callbackQuery.data match {
       case Some(data) =>
         val chatId = callbackQuery.from.id
@@ -155,16 +156,16 @@ object RequestParser {
           case Success(value: CallbackData) =>
             value match {
               case TestNextData(langDir) =>
-                parseLanguageDirection(langDir, TestNextCommand(_, chatId))
+                ZIO.effect(parseLanguageDirection(langDir, TestNextCommand(_, chatId)))
               case TestShowData(langDir, text) =>
-                parseLanguageDirection(langDir, TestShowCommand(text, _, chatId))
+                ZIO.effect(parseLanguageDirection(langDir, TestShowCommand(text, _, chatId)))
               case CallbackData.Empty =>
-                EmptyCallbackData
+                ZIO.succeed(EmptyCallbackData)
             }
           case Failure(exception) =>
-            MalformedCommand(s"Failed to parse callback data: ${exception.toString}")
+            ZIO.effect(MalformedCommand(s"Failed to parse callback data: ${exception.toString}"))
         }
-      case None => EmptyCallbackData
+      case None => ZIO.succeed(EmptyCallbackData)
     }
 
   private def parseLanguageDirection[T <: Command](couldBeLanguageDirection: String,

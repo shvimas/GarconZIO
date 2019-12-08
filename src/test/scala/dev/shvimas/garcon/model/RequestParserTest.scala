@@ -1,44 +1,42 @@
 package dev.shvimas.garcon.model
 
+import dev.shvimas.garcon.model.Helpers._
 import dev.shvimas.telegram.model.{Chat, Message}
 import dev.shvimas.translate.LanguageDirection
-import org.scalatest.FunSuite
+import zio.test._
+import zio.test.Assertion._
 
-class RequestParserTest extends FunSuite {
+object RequestParserTest
+    extends DefaultRunnableSpec(
+        suite("RequestParser suite")(
+            suite("parseMessage suite")(
+                messageParsingTest("translate")(
+                    message = makeMessage("some text", None),
+                    expected = TranslationRequest("some text", chatId, messageId),
+                ),
+                messageParsingTest("delete by reply")(
+                    message = makeMessage("/delete", Some(makeMessage("to be deleted", None))),
+                    expected = DeleteByReply(makeMessage("to be deleted", None), chatId),
+                ),
+                messageParsingTest("delete by lang dir")(
+                    message = makeMessage("/delete test en-ru", None),
+                    expected = DeleteByText("test", LanguageDirection.EN_RU, chatId),
+                ),
+                messageParsingTest("bad delete by lang dir")(
+                    message = makeMessage("/delete test trash", None),
+                    expected = MalformedCommand("bad language direction: trash"),
+                ),
+            ),
+        )
+    )
 
-  def doTest(message: Message, expected: Request): Unit = {
-    val messageToCommand = RequestParser.parseMessage(message)
-    assert(messageToCommand == expected)
-  }
+private object Helpers {
+  val chatId    = 1337
+  val messageId = 1
 
-  test("translate") {
-    val text    = "some text"
-    val message = makeMessage(text, None)
-    doTest(message, TranslationRequest(text, 1337, 1))
-  }
-
-  test("delete by reply") {
-    val text    = "/delete"
-    val reply   = makeMessage("to be deleted", None)
-    val message = makeMessage(text, Some(reply))
-    doTest(message, DeleteByReply(reply, 1337))
-  }
-
-  test("delete by lang dir") {
-    val text    = "/delete test en-ru"
-    val message = makeMessage(text, None)
-    doTest(message, DeleteByText("test", LanguageDirection.EN_RU, 1337))
-  }
-
-  test("bad delete by lang dir") {
-    val text    = "/delete test trash"
-    val message = makeMessage(text, None)
-    doTest(message, MalformedCommand("bad language direction: trash"))
-  }
-
-  val defaultChat =
+  private val defaultChat =
     Chat(
-        id = 1337,
+        id = chatId,
         `type` = "test",
         title = None,
         username = None,
@@ -48,7 +46,7 @@ class RequestParserTest extends FunSuite {
 
   def makeMessage(text: String, replyToMessage: Option[Message]): Message =
     Message(
-        messageId = 1,
+        messageId = messageId,
         from = None,
         date = 20190809,
         chat = defaultChat,
@@ -59,4 +57,11 @@ class RequestParserTest extends FunSuite {
         replyToMessage = replyToMessage,
         replyMarkup = None,
     )
+
+  def messageParsingTest[L](label: L)(message: Message,
+                                      expected: Request): ZSpec[Any, Throwable, L, Unit] =
+    testM(label) {
+      val zRequest = RequestParser.parseMessage(message)
+      assertM(zRequest, equalTo(expected))
+    }
 }

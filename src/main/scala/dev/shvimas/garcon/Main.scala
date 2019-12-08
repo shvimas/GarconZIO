@@ -210,7 +210,7 @@ object Main extends App with LazyLogging {
     }
 
   def processUpdate(update: Update): ZIO[Database with Translators, Throwable, Response] =
-    RequestParser.parseUpdate(update) match {
+    RequestParser.parseUpdate(update).flatMap {
       case request: TranslationRequest =>
         processTranslationRequest(request)
       case command: DeleteCommand =>
@@ -233,6 +233,8 @@ object Main extends App with LazyLogging {
         ZIO.succeed(EmptyMessageResponse)
       case EmptyCallbackData =>
         ZIO.succeed(EmptyCallbackDataResponse)
+      case BothMessageAndCallback =>
+        ZIO.succeed(BothMessageAndCallbackResponse(update))
     }
 
   case class ErrorWithInfo(error: Throwable, update: Update)
