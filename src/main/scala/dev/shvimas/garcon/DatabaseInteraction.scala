@@ -29,7 +29,7 @@ object DatabaseInteraction extends StrictLogging {
     ZIO
       .accessM[Database](_.updateOffset(maxId))
       .bimap(err => err -> maxId, updateResult => require(updateResult.getModifiedCount == 1))
-      .when(maxId >= 0)
+      .when(maxId > 0)
 
   private def maxUpdateId(result: GetUpdatesResult): Long =
     result.result
