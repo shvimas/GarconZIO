@@ -181,7 +181,8 @@ object Main extends App with LazyLogging {
 
   def processTestCommand(command: TestCommand): ZIO[Database, Throwable, TestResponse] =
     command match {
-      case TestStartCommand(languageDirection, chatId) =>
+      case TestStartCommand(maybeLanguageDirection, chatId) =>
+        val languageDirection = maybeLanguageDirection.getOrElse(Defaults.languageDirection)
         ZIO
           .accessM[Database](_.getRandomWord(chatId, languageDirection))
           .map(TestStartResponse(_, languageDirection))

@@ -24,7 +24,7 @@ object HelpCommand extends Command {
 
 sealed trait TestCommand extends Command
 
-case class TestStartCommand(languageDirection: LanguageDirection, chatId: Int) extends TestCommand
+case class TestStartCommand(languageDirection: Option[LanguageDirection], chatId: Int) extends TestCommand
 
 object TestStartCommand {
   val pattern: Regex = s"test\\s*(.*)".r
@@ -130,7 +130,7 @@ object RequestParser {
           case other: String => MalformedCommand(s"""can't understand "$other"""")
         }
       case TestStartCommand.pattern(couldBeLanguageDirection) =>
-        parseLanguageDirection(couldBeLanguageDirection, TestStartCommand(_, chatId))
+        TestStartCommand(LanguageDirection.parse(couldBeLanguageDirection), chatId)
       case ChooseCommand.pattern(couldBeLanguageDirection) =>
         parseLanguageDirection(couldBeLanguageDirection, ChooseCommand(_, chatId))
       case DecapitalizeCommand.pattern(couldBeState) =>
