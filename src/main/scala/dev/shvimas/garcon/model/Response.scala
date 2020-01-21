@@ -11,15 +11,19 @@ case class TranslationResponse(translationWithInfo: TranslationWithInfo) extends
 
 case class DeletionResponse(response: Either[String, String]) extends Response
 
+sealed trait EditResponse extends Response
+
+case class SuccessfulEditResponse(text: String, languageDirection: LanguageDirection, edit: String) extends EditResponse
+
+case class FailedEditResponse(desc: String) extends EditResponse
+
 sealed trait TestResponse extends Response
 
-case class TestStartResponse(maybeTranslation: Option[CommonTranslation],
-                             languageDirection: LanguageDirection,
-) extends TestResponse
+case class TestStartResponse(maybeTranslation: Option[CommonTranslation], languageDirection: LanguageDirection)
+    extends TestResponse
 
-case class TestNextResponse(maybeTranslation: Option[CommonTranslation],
-                            languageDirection: LanguageDirection,
-) extends TestResponse
+case class TestNextResponse(maybeTranslation: Option[CommonTranslation], languageDirection: LanguageDirection)
+    extends TestResponse
 
 object TestNextResponse {
 
@@ -31,9 +35,8 @@ object TestNextResponse {
   }
 }
 
-case class TestShowResponse(maybeTranslation: Option[CommonTranslation],
-                            languageDirection: LanguageDirection,
-) extends TestResponse
+case class TestShowResponse(maybeTranslation: Option[CommonTranslation], languageDirection: LanguageDirection)
+    extends TestResponse
 
 object TestShowResponse {
 
@@ -50,8 +53,7 @@ sealed trait ChooseResponse extends Response
 
 case class SuccessfulChooseResponse(languageDirection: LanguageDirection) extends ChooseResponse
 
-case class FailedChooseResponse(description: String, languageDirection: LanguageDirection)
-    extends ChooseResponse
+case class FailedChooseResponse(description: String, languageDirection: LanguageDirection) extends ChooseResponse
 
 case class DecapitalizeResponse(state: DecapitalizeCommand.State.Value) extends Response
 
@@ -90,6 +92,4 @@ object EmptyMessageResponse extends ErrorResponse
 
 case class BothMessageAndCallbackResponse(update: Update) extends ErrorResponse
 
-case class TranslationWithInfo(translation: CommonTranslation,
-                               languageDirection: LanguageDirection,
-                               messageId: Int)
+case class TranslationWithInfo(translation: CommonTranslation, languageDirection: LanguageDirection, messageId: Int)

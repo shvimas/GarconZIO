@@ -24,7 +24,8 @@ object HelpCommand extends Command {
 
 sealed trait TestCommand extends Command
 
-case class TestStartCommand(languageDirection: Option[LanguageDirection], chatId: Int) extends TestCommand
+case class TestStartCommand(languageDirection: Option[LanguageDirection], chatId: Int)
+    extends TestCommand
 
 object TestStartCommand {
   val pattern: Regex = s"test\\s*(.*)".r
@@ -73,6 +74,18 @@ object DecapitalizeCommand {
       Try(withName(s)).toOption
   }
 
+}
+
+sealed trait EditCommand extends Command
+
+object EditCommand {
+  val pattern: Regex = "edit(.*)".r
+}
+
+case class EditByReply(reply: Message, edit: String, chatId: Int) extends EditCommand
+
+object EditByReply {
+  val pattern: Regex = "\\s*(.*)\\s*".r
 }
 
 case class MalformedCommand(desc: String) extends Command
@@ -128,6 +141,15 @@ object RequestParser {
           case DeleteByText.pattern(word, couldBeLanguageDirection) =>
             parseLanguageDirection(couldBeLanguageDirection, DeleteByText(word, _, chatId))
           case other: String => MalformedCommand(s"""can't understand "$other"""")
+        }
+      case EditCommand.pattern(rest) =>
+        rest match {
+          case EditByReply.pattern(edited) =>
+            message.replyToMessage match {
+              case Some(replyTo) => EditByReply(replyTo, edited, chatId)
+              case None          => MalformedCommand("this command needs to be a part of a reply")
+            }
+          case other => MalformedCommand(s"""can't understand "$other"""")
         }
       case TestStartCommand.pattern(couldBeLanguageDirection) =>
         TestStartCommand(LanguageDirection.parse(couldBeLanguageDirection), chatId)

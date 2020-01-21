@@ -88,6 +88,10 @@ object BotInteraction {
                       s"Switched language direction to $languageDirection"
                     case FailedChooseResponse(desc, languageDirection) =>
                       s"Error: $desc while switching to $languageDirection"
+                    case SuccessfulEditResponse(text, languageDirection, edit) =>
+                      s"Edited $text ($languageDirection): $edit"
+                    case FailedEditResponse(desc) =>
+                      desc
                     case DecapitalizeResponse(state) =>
                       s"Decapitalization is $state"
                     case HelpResponse =>

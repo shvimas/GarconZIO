@@ -33,5 +33,11 @@ trait Database {
 
   def deleteText(text: String, langDirection: LanguageDirection, chatId: Int): Task[DeleteResult]
 
+  def editTranslation(text: String,
+                      edit: String,
+                      languageDirection: LanguageDirection,
+                      chatId: Int,
+                     ): Task[Option[UpdateResult]]
+
   def getRandomWord(chatId: Int, languageDirection: LanguageDirection): Task[Option[CommonTranslation]]
 }

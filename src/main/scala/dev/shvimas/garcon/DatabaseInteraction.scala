@@ -63,7 +63,7 @@ object DatabaseInteraction extends StrictLogging {
                       saveTranslationResult(chatId, translationWithInfo)
                     case DecapitalizeResponse(state) =>
                       saveDecapitalizationState(chatId, state)
-                    case _: DeletionResponse | _: TestResponse | _: ChooseResponse | HelpResponse |
+                    case _: DeletionResponse | _: TestResponse | _: ChooseResponse | _: EditResponse | HelpResponse |
                         _: ErrorResponse =>
                       ZIO.unit
                   }

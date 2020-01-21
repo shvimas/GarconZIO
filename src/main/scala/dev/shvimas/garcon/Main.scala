@@ -106,13 +106,18 @@ object Main extends App with LazyLogging {
       request: TranslationRequest,
   ): ZIO[Database with Translators, Throwable, TranslationResponse] =
     for {
-      text              <- prepareText(request.text, request.chatId)
-      languageDirection <- resolveLangDirection(request.chatId).map(_.maybeReverse(text))
-      commonTranslation <- commonTranslation(text, languageDirection)
+      text                 <- prepareText(request.text, request.chatId)
+      languageDirection    <- resolveLangDirection(request.chatId).map(_.maybeReverse(text))
+      commonTranslation    <- commonTranslation(text, languageDirection)
+      maybePrevTranslation <- ZIO.accessM[Database](_.lookUpText(text, languageDirection, request.chatId))
     } yield {
+      val mergedTranslation =
+        maybePrevTranslation
+          .map(commonTranslation.mergeWith)
+          .getOrElse(commonTranslation)
       TranslationResponse(
           TranslationWithInfo(
-              translation = commonTranslation,
+              translation = mergedTranslation,
               languageDirection = languageDirection,
               messageId = request.messageId,
           )
@@ -179,6 +184,47 @@ object Main extends App with LazyLogging {
     result.map(DeletionResponse)
   }
 
+  def processEditCommand(command: EditCommand): ZIO[Database, Throwable, EditResponse] = {
+    def editTranslation(text: String,
+                        edit: String,
+                        chatId: Int,
+                        languageDirection: LanguageDirection,
+    ): ZIO[Database, Throwable, EditResponse] =
+      ZIO
+        .accessM[Database](_.editTranslation(text, edit, languageDirection, chatId))
+        .map {
+          case Some(updateResult) =>
+            if (updateResult.wasAcknowledged()) {
+              updateResult.getModifiedCount match {
+                case 0 => FailedEditResponse("Nothing was modified in database")
+                case 1 => SuccessfulEditResponse(text, languageDirection, edit)
+                case n => FailedEditResponse(s"Database modified $n entries instead of one")
+              }
+            } else FailedEditResponse("Database request was not acknowledged")
+          case None =>
+            FailedEditResponse(s"Couldn't edit $text (failed to find translation)")
+        }
+
+    command match {
+      case EditByReply(reply, edit, chatId) =>
+        reply.text match {
+          case Some(text) =>
+            for {
+              text         <- prepareText(text, chatId)
+              maybeLangDir <- ZIO.accessM[Database](_.findLanguageDirectionForMessage(chatId, text, reply.messageId))
+              response <- maybeLangDir match {
+                case Some(languageDirection) =>
+                  editTranslation(text, edit, chatId, languageDirection)
+                case None =>
+                  ZIO.succeed(FailedEditResponse(s"Couldn't edit $text (failed to find language direction)"))
+              }
+            } yield response
+          case None =>
+            ZIO.succeed(FailedEditResponse("Couldn't edit (text is empty)"))
+        }
+    }
+  }
+
   def processTestCommand(command: TestCommand): ZIO[Database, Throwable, TestResponse] =
     command match {
       case TestStartCommand(maybeLanguageDirection, chatId) =>
@@ -216,6 +262,8 @@ object Main extends App with LazyLogging {
         processTranslationRequest(request)
       case command: DeleteCommand =>
         processDeleteCommand(command)
+      case command: EditCommand =>
+        processEditCommand(command)
       case command: TestCommand =>
         processTestCommand(command)
       case command: ChooseCommand =>

@@ -28,5 +28,5 @@ object TranslatorsInteraction extends LazyLogging {
           )
       )
       .map(_.flatten)
-      .map(translations => CommonTranslation(text, translations.toMap))
+      .map(translations => CommonTranslation(text, translations.toMap, None))
 }
