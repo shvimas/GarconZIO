@@ -8,8 +8,8 @@ object Dependencies {
     "org.mongodb.scala" %% "mongo-scala-driver" % Versions.mongoDriver,
     "com.typesafe" % "config" % Versions.config,
 
-    "com.typesafe.scala-logging" %% "scala-logging" % Versions.logging,
-    "ch.qos.logback" % "logback-classic" % Versions.logback,
+//    "com.typesafe.scala-logging" %% "scala-logging" % Versions.logging,
+//    "ch.qos.logback" % "logback-classic" % Versions.logback,
 
     "org.scalatest" %% "scalatest" % Versions.scalaTest % Test,
     "dev.zio" %% "zio-test" % Versions.zio % Test,

@@ -1,6 +1,5 @@
 package dev.shvimas.garcon
 
-import com.typesafe.scalalogging.LazyLogging
 import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.database.model.UserData
 import dev.shvimas.garcon.model._
@@ -8,12 +7,13 @@ import dev.shvimas.telegram._
 import dev.shvimas.telegram.model.Result.{GetUpdatesResult, SendMessageResult}
 import dev.shvimas.telegram.model.Update
 import dev.shvimas.translate.LanguageDirection
+import dev.shvimas.ZIOLogging
 import org.mongodb.scala.result.UpdateResult
 import zio.{ZIO, _}
 import zio.clock.Clock
 import zio.duration._
 
-object Main extends App with LazyLogging {
+object Main extends App with ZIOLogging {
 
   import dev.shvimas.garcon.BotInteraction._
   import dev.shvimas.garcon.DatabaseInteraction._
@@ -46,7 +46,7 @@ object Main extends App with LazyLogging {
       } yield result
 
     zGetUpdatesResult
-      .mapError(logger.error("While getting updates:", _))
+      .tapError(zioLogger.error("While getting updates", _))
       .option
   }
 
@@ -57,54 +57,39 @@ object Main extends App with LazyLogging {
       _              <- respondWith(results) <&> saveResults(results) <&> processErrors(results)
     } yield ()
 
-  def groupUpdates(getUpdatesResult: GetUpdatesResult): UIO[Map[Int, List[Update]]] =
-    ZIO
-      .effect {
-        getUpdatesResult.result
-          .groupBy(_.chatId)
-          .map {
-            case (Some(chatId), updates) =>
-              Some(chatId -> updates)
-            case (None, updates) =>
-              processOrphanUpdates(updates)
-              Option.empty[(Int, List[Update])]
-          }
-          .flatten
-          .toMap
-      }
-      .flatMapError { throwable: Throwable =>
-        for {
-          _ <- ZIO.effect(logger.error(s"While grouping updates", throwable)).option
-        } yield Map.empty[Int, List[Update]]
-      }
-      .fold(identity, identity)
+  def groupUpdates(getUpdatesResult: GetUpdatesResult): UIO[Map[Int, List[Update]]] = {
+    val zGroupedUpdates: Task[Map[Int, List[Update]]] =
+      for {
+        grouped <- ZIO.effect(getUpdatesResult.result.groupBy(_.chatId))
+        processed <- ZIO.collectAll(grouped.map {
+          case (Some(chatId), updates) => ZIO.succeed(Some(chatId -> updates))
+          case (None, updates)         => processOrphanUpdates(updates).as(None)
+        })
+      } yield processed.flatten.toMap
+    zGroupedUpdates
+      .tapError(zioLogger.error("While grouping updates", _))
+      .orElse(ZIO.succeed(Map.empty))
+  }
 
   def respondWith(results: AllResults): ZIO[Bot, Nothing, Unit] =
     for {
       sendResponsesResult <- sendResponses(results)
-      _ <- ZIO
-        .collectAll(
-            sendResponsesResult.map {
-              case (chatId, Left(throwable: Throwable)) =>
-                ZIO.effect(logger.error(s"Failed to send responses to $chatId:", throwable)).option
-              case (chatId, Right(sendMessageResults: List[SendMessageResult])) =>
-                // TODO: resend if not ok?
-                ZIO
-                  .effect(
-                      logger.info(
-                          s"""Send message results for $chatId:
-                             |${sendMessageResults.mkString("\n")}
-                             |""".stripMargin
-                      )
-                  )
-                  .option
-            }
-        )
+      _ <- ZIO.collectAll(
+          sendResponsesResult.map {
+            case (chatId, Left(throwable: Throwable)) =>
+              zioLogger.error(s"Failed to send responses to $chatId", throwable)
+            case (chatId, Right(sendMessageResults: List[SendMessageResult])) =>
+              // TODO: resend if not ok?
+              zioLogger.info(
+                  s"""Send message results for $chatId:
+                     |${sendMessageResults.mkString("\n")}
+                     |""".stripMargin
+              )
+          }
+      )
     } yield ()
 
-  def processTranslationRequest(
-      request: TranslationRequest,
-  ): ZIO[Database with Translators, Throwable, TranslationResponse] =
+  def processTranslationRequest(request: TranslationRequest): RIO[Database with Translators, TranslationResponse] =
     for {
       text                 <- prepareText(request.text, request.chatId)
       languageDirection    <- resolveLangDirection(request.chatId).map(_.maybeReverse(text))
@@ -311,8 +296,8 @@ object Main extends App with LazyLogging {
         }
     )
 
-  private def processOrphanUpdates(orphanUpdates: Seq[Update]): Unit =
-    logger.warn(
+  private def processOrphanUpdates(orphanUpdates: Seq[Update]): UIO[Unit] =
+    zioLogger.warn(
         s"""Got updates from unknown chat:
            |${orphanUpdates.mkString("\n")}
            |
@@ -332,7 +317,7 @@ object Main extends App with LazyLogging {
     ZIO
       .foreach(errors) {
         case ErrorWithInfo(throwable, update) =>
-          ZIO.effect(logger.error(s"While processing $update", throwable)).option
+          zioLogger.error(s"While processing $update", throwable)
       }
       .unit
   }

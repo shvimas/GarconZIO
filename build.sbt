@@ -12,9 +12,12 @@ lazy val telegram = project in file("telegram")
 telegram / libraryDependencies ++= TelegramDependencies.all
 telegram / testFrameworks += zioTestFramework
 
+lazy val zioLogging = project in file("zio-logging")
+zioLogging / libraryDependencies ++= ZioLoggingDependencies.all
+
 lazy val root = (project in file("."))
-  .dependsOn(translator, telegram)
-  .aggregate(translator, telegram)
+  .dependsOn(translator, telegram, zioLogging)
+  .aggregate(translator, telegram, zioLogging)
 root / libraryDependencies ++= Dependencies.all
 root / testFrameworks += zioTestFramework
 root / mainClass in Compile := Some("dev.shvimas.garcon.Main")

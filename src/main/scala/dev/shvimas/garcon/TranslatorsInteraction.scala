@@ -1,32 +1,29 @@
 package dev.shvimas.garcon
 
-import com.typesafe.scalalogging.LazyLogging
 import dev.shvimas.garcon.database.model.CommonTranslation
-import dev.shvimas.translate.LanguageDirection
-import zio.ZIO
+import dev.shvimas.translate.{LanguageDirection, Translator}
+import dev.shvimas.ZIOLogging
+import zio.{Task, ZIO}
 
-object TranslatorsInteraction extends LazyLogging {
+object TranslatorsInteraction extends ZIOLogging {
 
   def commonTranslation(text: String,
                         languageDirection: LanguageDirection,
   ): ZIO[Translators, Nothing, CommonTranslation] =
-    ZIO
-      .access[Translators](_.supportedTranslators)
-      .flatMap(
-          translators =>
-            ZIO.collectAllPar(
-                translators.map {
-                  case (name, translator) =>
-                    translator
-                      .translate(text, languageDirection)
-                      .bimap(
-                          logger.error(s"While translating $text ($languageDirection)", _),
-                          name -> _.translatedText,
-                      )
-                      .option
-                }
-          )
-      )
-      .map(_.flatten)
-      .map(translations => CommonTranslation(text, translations.toMap, None))
+    for {
+      namedTranslators <- ZIO.access[Translators](_.supportedTranslators)
+      allTranslations  <- ZIO.collectAllSuccessesPar(translateWith(namedTranslators, text, languageDirection))
+    } yield CommonTranslation(text, allTranslations.toMap, None)
+
+  private def translateWith(translators: Map[String, Translator],
+                            text: String,
+                            languageDirection: LanguageDirection,
+  ): Iterable[Task[(String, String)]] =
+    translators.map {
+      case (name, translator) =>
+        translator
+          .translate(text, languageDirection)
+          .tapError(zioLogger.error(s"While translating $text ($languageDirection)", _))
+          .map(name -> _.translatedText)
+    }
 }
