@@ -18,26 +18,24 @@ class TelegramBot(settings: TelegramBotSettings) extends Bot with StrictLogging 
 
   implicit val defaultBackend: SttpBackend[Id, Nothing] =
     HttpURLConnectionBackend(
-      SttpBackendOptions(
-        FiniteDuration(20, TimeUnit.SECONDS),
-        settings.proxy.map(_.toSttpBackendProxy)
-      )
+        SttpBackendOptions(
+            FiniteDuration(20, TimeUnit.SECONDS),
+            settings.proxy.map(_.toSttpBackendProxy)
+        )
     )
 
   implicit val defaultFormats: DefaultFormats.type = DefaultFormats
 
   def callApi[R](method: String, params: Map[String, Any])(
-    implicit formats: Formats = defaultFormats,
-    manifest: Manifest[R]
+      implicit formats: Formats = defaultFormats,
+      manifest: Manifest[R]
   ): Try[R] =
-    sttp
-      .get(uri"https://api.telegram.org/bot${settings.token}/$method?$params")
-      .send()
-      .body
-      .left
-      .map(ApiRequestError)
-      .toTry
-      .flatMap(s => Try(parse(s).camelizeKeys.extract[R]))
+    for {
+      uri        <- Try(uri"https://api.telegram.org/bot${settings.token}/$method?$params")
+      bodyEither <- Try(sttp.get(uri).send().body)
+      body       <- bodyEither.left.map(ApiRequestError).toTry
+      result     <- Try(parse(body).camelizeKeys.extract[R])
+    } yield result
 
   def getMe: Try[GetMeResult] =
     callApi[GetMeResult]("getMe", Map.empty)
@@ -51,11 +49,11 @@ class TelegramBot(settings: TelegramBotSettings) extends Bot with StrictLogging 
                            text: Option[String],
                            disableNotification: Boolean = true,
                            replyMarkup: Option[InlineKeyboardMarkup] = None,
-                          ): Try[SendMessageResult] = {
+  ): Try[SendMessageResult] = {
     var params = Map(
-      "chat_id" -> chatId,
-      "text" -> text,
-      "disable_notification" -> disableNotification.toString
+        "chat_id"              -> chatId,
+        "text"                 -> text,
+        "disable_notification" -> disableNotification.toString
     )
     replyMarkup.foreach(markup => params += "reply_markup" -> markup.toJson)
     logger.debug("Sending message")

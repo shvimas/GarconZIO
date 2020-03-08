@@ -62,7 +62,7 @@ object Main extends App with ZIOLogging {
       for {
         grouped <- ZIO.effect(getUpdatesResult.result.groupBy(_.chatId))
         processed <- ZIO.collectAll(grouped.map {
-          case (Some(chatId), updates) => ZIO.succeed(Some(chatId -> updates))
+          case (Some(chatId), updates) => ZIO.some(chatId -> updates)
           case (None, updates)         => processOrphanUpdates(updates).as(None)
         })
       } yield processed.flatten.toMap

@@ -180,9 +180,9 @@ object Mongo {
             case Some(messageId) =>
               val edited = mongoCommonTranslation.copy(edited = Some(edit)).toCommonTranslation
               addCommonTranslation(edited, chatId, languageDirection, messageId).map(Some(_))
-            case None => ZIO.succeed(None)
+            case None => ZIO.none
           }
-        case None => ZIO.succeed(None)
+        case None => ZIO.none
       }
 
     override def getRandomWord(chatId: Int, languageDirection: LanguageDirection): Task[Option[CommonTranslation]] =
