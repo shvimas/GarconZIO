@@ -1,6 +1,7 @@
 package dev.shvimas.garcon
 
 import dev.shvimas.garcon.database.model.{CommonTranslationFields, UserData}
+import dev.shvimas.telegram.model.Chat
 import dev.shvimas.translate.LanguageDirection
 
 object Defaults {
@@ -10,7 +11,7 @@ object Defaults {
 
   val decapitalization: Boolean = true
 
-  def userData(chatId: Int,
+  def userData(chatId: Chat.Id,
                languageDirection: LanguageDirection = Defaults.languageDirection,
                decapitalization: Boolean = Defaults.decapitalization,
   ): UserData =

@@ -31,13 +31,13 @@ object RequestParserTest
     )
 
 private object Helpers {
-  val chatId    = 1337
-  val messageId = 1
+  val chatId    = Chat.Id(1337)
+  val messageId = Message.Id(1)
 
   private val defaultChat =
     Chat(
         id = chatId,
-        `type` = "test",
+        `type` = Chat.Type("test"),
         title = None,
         username = None,
         firstName = None,
@@ -48,18 +48,17 @@ private object Helpers {
     Message(
         messageId = messageId,
         from = None,
-        date = 20190809,
+        date = Message.Date(20190809),
         chat = defaultChat,
         editDate = None,
-        text = if (text.nonEmpty) Some(text) else None,
+        text = if (text.nonEmpty) Some(Message.Text(text)) else None,
         entities = Nil,
         captionEntities = Nil,
         replyToMessage = replyToMessage,
         replyMarkup = None,
     )
 
-  def messageParsingTest[L](label: L)(message: Message,
-                                      expected: Request): ZSpec[Any, Throwable, L, Unit] =
+  def messageParsingTest[L](label: L)(message: Message, expected: Request): ZSpec[Any, Throwable, L, Unit] =
     testM(label) {
       val zRequest = RequestParser.parseMessage(message)
       assertM(zRequest, equalTo(expected))

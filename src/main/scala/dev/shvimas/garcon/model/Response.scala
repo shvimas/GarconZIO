@@ -2,7 +2,7 @@ package dev.shvimas.garcon.model
 
 import dev.shvimas.garcon.database.model.CommonTranslation
 import dev.shvimas.garcon.model.proto.callback_data.{CallbackRequest, TestNextData, TestShowData}
-import dev.shvimas.telegram.model.Update
+import dev.shvimas.telegram.model.{CallbackQuery, Message, Update}
 import dev.shvimas.translate.LanguageDirection
 
 sealed trait Response
@@ -27,7 +27,7 @@ case class TestNextResponse(maybeTranslation: Option[CommonTranslation], languag
 
 object TestNextResponse {
 
-  def makeCallbackData(languageDirection: LanguageDirection): String = {
+  def makeCallbackData(languageDirection: LanguageDirection): CallbackQuery.Data = {
     val data = TestNextData(
         langDir = languageDirection.toString,
     )
@@ -40,7 +40,7 @@ case class TestShowResponse(maybeTranslation: Option[CommonTranslation], languag
 
 object TestShowResponse {
 
-  def makeCallbackData(languageDirection: LanguageDirection, text: String): String = {
+  def makeCallbackData(languageDirection: LanguageDirection, text: String): CallbackQuery.Data = {
     val data = TestShowData(
         langDir = languageDirection.toString,
         text = text,
@@ -92,4 +92,6 @@ object EmptyMessageResponse extends ErrorResponse
 
 case class BothMessageAndCallbackResponse(update: Update) extends ErrorResponse
 
-case class TranslationWithInfo(translation: CommonTranslation, languageDirection: LanguageDirection, messageId: Int)
+case class TranslationWithInfo(translation: CommonTranslation,
+                               languageDirection: LanguageDirection,
+                               messageId: Message.Id)

@@ -4,14 +4,13 @@ import dev.shvimas.garcon.Main._
 import dev.shvimas.garcon.database.model.CommonTranslation
 import dev.shvimas.garcon.model._
 import dev.shvimas.telegram.Bot
-import dev.shvimas.telegram.model.{InlineKeyboardButton, InlineKeyboardMarkup}
-import dev.shvimas.telegram.model.Result.SendMessageResult
+import dev.shvimas.telegram.model._
 import dev.shvimas.translate.LanguageDirection
 import zio.ZIO
 
 object BotInteraction {
 
-  type SendResponsesResults = List[(Int, Either[Throwable, List[SendMessageResult]])]
+  type SendResponsesResults = List[(Chat.Id, Either[Throwable, List[SendMessageResult]])]
 
   def sendResponses(results: AllResults): ZIO[Bot, Nothing, SendResponsesResults] =
     ZIO.collectAllPar(
@@ -19,9 +18,9 @@ object BotInteraction {
     )
 
   private def sendPerUsersResponses(
-      chatId: Int,
+      chatId: Chat.Id,
       resultsPerUser: List[Either[ErrorWithInfo, Response]]
-  ): ZIO[Bot, Nothing, (Int, Either[Throwable, List[SendMessageResult]])] =
+  ): ZIO[Bot, Nothing, (Chat.Id, Either[Throwable, List[SendMessageResult]])] =
     ZIO
       .collectAll(
           resultsPerUser.map { errorOrResult: Either[ErrorWithInfo, Response] =>
@@ -42,8 +41,7 @@ object BotInteraction {
                       def makeShowButton(translation: CommonTranslation,
                                          languageDirection: LanguageDirection,
                       ): InlineKeyboardButton = {
-                        val data = TestShowResponse
-                          .makeCallbackData(languageDirection, translation.text)
+                        val data = TestShowResponse.makeCallbackData(languageDirection, translation.text)
                         InlineKeyboardButton("Show", data)
                       }
 
@@ -119,9 +117,9 @@ object BotInteraction {
       .either
       .map(chatId -> _)
 
-  def sendMessage(chatId: Int,
-                  response: String,
-                  replyMarkup: Option[InlineKeyboardMarkup],
+  private def sendMessage(chatId: Chat.Id,
+                          response: String,
+                          replyMarkup: Option[InlineKeyboardMarkup],
   ): ZIO[Bot, Throwable, SendMessageResult] =
     for {
       triedResult <- ZIO.access[Bot](_.sendMessage(chatId, Some(response), replyMarkup = replyMarkup))

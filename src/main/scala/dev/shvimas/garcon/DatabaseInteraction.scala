@@ -5,74 +5,79 @@ import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.Main._
 import dev.shvimas.garcon.database.model.UserData
 import dev.shvimas.garcon.model.{DecapitalizeCommand, _}
-import dev.shvimas.telegram.model.Result.GetUpdatesResult
+import dev.shvimas.telegram.model.{Chat, GetUpdatesResult, Update}
+import dev.shvimas.telegram.Bot
 import dev.shvimas.translate.LanguageDirection
 import org.mongodb.scala.result.UpdateResult
-import zio.ZIO
+import zio.{Task, ZIO}
 
 object DatabaseInteraction extends StrictLogging {
 
   import CommonUtils._
 
   def updateOffset(updatesResult: GetUpdatesResult): ZIO[Database, Nothing, Unit] =
-    ZIO
-      .succeed(maxUpdateId(updatesResult) + 1)
-      .flatMap(doOffsetUpdate)
-      .mapError {
-        case (throwable: Throwable, offset: Long) =>
-          logger.error(s"While updating offset ($offset):", throwable)
-      }
-      .option
-      .unit
+    (for {
+      offset <- newOffset(updatesResult).mapError(logErrorWithContext(s"While calculating new offset", _))
+      _      <- doOffsetUpdate(offset).mapError(logErrorWithContext(s"While updating offset $offset", _))
+    } yield ()).fold(_ => (), _ => ())
 
-  private def doOffsetUpdate(maxId: Long): ZIO[Database, (Throwable, Long), Unit] =
-    ZIO
-      .accessM[Database](_.updateOffset(maxId))
-      .bimap(err => err -> maxId, updateResult => require(updateResult.getModifiedCount == 1))
-      .when(maxId > 0)
+  private def doOffsetUpdate(offset: Bot.Offset): ZIO[Database, Throwable, Unit] =
+    ZIO.when(offset > 0) {
+      for {
+        result <- ZIO.accessM[Database](_.updateOffset(offset))
+        _      <- ZIO.effect(require(result.getModifiedCount == 1))
+      } yield ()
+    }
 
-  private def maxUpdateId(result: GetUpdatesResult): Long =
-    result.result
-      .map(_.updateId)
-      .fold(-1)(math.max)
+  private def newOffset(result: GetUpdatesResult): Task[Bot.Offset] =
+    ZIO.effect {
+      val maybeMaxUpdateId: Option[Update.Id] =
+        result.result
+          .reduceOption[Update] { case (u1, u2) => if (u1.updateId.value >= u2.updateId.value) u1 else u2 }
+          .map(_.updateId)
+      Bot.Offset(maybeMaxUpdateId.map(id => id.value + 1).getOrElse(0))
+    }
 
-  def resolveLangDirection(chatId: Int): ZIO[Database, Throwable, LanguageDirection] =
+  def resolveLangDirection(chatId: Chat.Id): ZIO[Database, Throwable, LanguageDirection] =
     ZIO
       .accessM[Database](_.getUserData(chatId))
       .flatMap {
         case Some(UserData(_, Some(languageDirection), _)) =>
           ZIO.succeed(languageDirection)
         case Some(UserData(_, None, _)) =>
-          ZIO.accessM[Database](_.setLanguageDirection(chatId, Defaults.languageDirection)) *> ZIO
-            .succeed(Defaults.languageDirection)
+          ZIO
+            .accessM[Database](_.setLanguageDirection(chatId, Defaults.languageDirection))
+            .as(Defaults.languageDirection)
         case None =>
-          ZIO.accessM[Database](_.setUserData(Defaults.userData(chatId))) *> ZIO
-            .succeed(Defaults.languageDirection)
+          ZIO
+            .accessM[Database](_.setUserData(Defaults.userData(chatId)))
+            .as(Defaults.languageDirection)
       }
 
   def saveResults(allResults: AllResults): ZIO[Database, Nothing, Unit] =
     ZIO
       .collectAllPar(
-          allResults.flatMap {
-            case (chatId, perUserResults: List[Either[ErrorWithInfo, Response]]) =>
-              perUserResults.map {
-                case Left(_) => ZIO.unit
-                case Right(response) =>
-                  response match {
-                    case TranslationResponse(translationWithInfo) =>
-                      saveTranslationResult(chatId, translationWithInfo)
-                    case DecapitalizeResponse(state) =>
-                      saveDecapitalizationState(chatId, state)
-                    case _: DeletionResponse | _: TestResponse | _: ChooseResponse | _: EditResponse | HelpResponse |
-                        _: ErrorResponse =>
-                      ZIO.unit
-                  }
-              }
-          }
+          for {
+            (chatId, perUserResults) <- allResults
+            errorOrResponse          <- perUserResults
+          } yield
+            errorOrResponse match {
+              case Left(_) => ZIO.unit
+              case Right(response) =>
+                response match {
+                  case TranslationResponse(translationWithInfo) =>
+                    saveTranslationResult(chatId, translationWithInfo)
+                  case DecapitalizeResponse(state) =>
+                    saveDecapitalizationState(chatId, state)
+                  case _: DeletionResponse | _: TestResponse | _: ChooseResponse | _: EditResponse | HelpResponse |
+                      _: ErrorResponse =>
+                    ZIO.unit
+                }
+            }
       )
-      .map(unify)
+      .unit
 
-  private def saveDecapitalizationState(chatId: Int,
+  private def saveDecapitalizationState(chatId: Chat.Id,
                                         state: DecapitalizeCommand.State.Value,
   ): ZIO[Database, Nothing, Unit] = {
     val decapValue: Boolean =
@@ -96,21 +101,21 @@ object DatabaseInteraction extends StrictLogging {
       .fold(logErrorWithContext, _ => ())
   }
 
-  private def saveTranslationResult(chatId: Int,
+  private def saveTranslationResult(chatId: Chat.Id,
                                     translationWithInfo: TranslationWithInfo,
   ): ZIO[Database, Nothing, Unit] = {
     val TranslationWithInfo(commonTranslation, languageDirection, messageId) = translationWithInfo
     ZIO
-      .accessM[Database](_.addCommonTranslation(commonTranslation, chatId, languageDirection, messageId))
-      .flatMap { updateResult: UpdateResult =>
+      .when(commonTranslation.nonEmpty) {
         ZIO
-          .effect(
-              logger.error(s"Tried to save $commonTranslation for $chatId but it was not acknowledged")
-          )
-          .when(!updateResult.wasAcknowledged)
+          .accessM[Database](_.addCommonTranslation(commonTranslation, chatId, languageDirection, messageId))
+          .flatMap { updateResult: UpdateResult =>
+            ZIO.when(!updateResult.wasAcknowledged) {
+              ZIO.effect(logger.error(s"Tried to save $commonTranslation for $chatId but it was not acknowledged"))
+            }
+          }
       }
       .mapError(s"While saving $commonTranslation for $chatId:" -> _)
       .fold(logErrorWithContext, _ => ())
-      .when(!commonTranslation.isEmpty)
   }
 }

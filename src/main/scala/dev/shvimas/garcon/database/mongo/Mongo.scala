@@ -7,6 +7,9 @@ import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.database.model._
 import dev.shvimas.garcon.database.mongo.codec.LanguageCodeCodecProvider
 import dev.shvimas.garcon.database.mongo.model._
+import dev.shvimas.garcon.model.Text
+import dev.shvimas.telegram.model.{Chat, Message}
+import dev.shvimas.telegram.Bot
 import dev.shvimas.translate.LanguageDirection
 import org.bson.codecs.configuration.CodecRegistries.{fromProviders, fromRegistries}
 import org.bson.codecs.configuration.CodecRegistry
@@ -57,32 +60,31 @@ object Mongo {
         .first()
         .toOptionTask
 
-    override def updateOffset(offset: Long): Task[UpdateResult] =
+    override def updateOffset(offset: Bot.Offset): Task[UpdateResult] =
       globalsColl
         .updateOne(
             filter = emptyBson,
-            update = max(GlobalsFields.offset, offset),
+            update = max(GlobalsFields.offset, offset.value),
             options = upsert
         )
         .toTask
 
-    override def getOffset: Task[Long] =
-      getGlobals map {
-        case Some(globals) => globals.offset.getOrElse(0)
-        case None          => 0
-      }
+    override def getOffset: Task[Bot.Offset] =
+      getGlobals
+        .map(_.flatMap(_.offset).getOrElse(0L))
+        .map(Bot.Offset)
 
-    private def getWordsColl(chatId: Int): MongoCollection[MongoCommonTranslation] =
-      garconDb.getCollection(s"${chatId}_words")
+    private def getWordsColl(chatId: Chat.Id): MongoCollection[MongoCommonTranslation] =
+      garconDb.getCollection(s"${chatId.value}_words")
 
-    private def getTranslation(chatId: Int,
-                               text: String,
+    private def getTranslation(chatId: Chat.Id,
+                               text: Text.Checked,
                                languageDirection: LanguageDirection,
     ): Task[Option[MongoCommonTranslation]] =
       getWordsColl(chatId)
         .find(
             filter = combine(
-                equal(CommonTranslationFields.text, text),
+                equal(CommonTranslationFields.text, text.value),
                 equal(
                     CommonTranslationFields.languageDirection,
                     MongoLanguageDirection(languageDirection)
@@ -92,17 +94,17 @@ object Mongo {
         .first()
         .toOptionTask
 
-    override def lookUpText(text: String,
+    override def lookUpText(text: Text.Checked,
                             languageDirection: LanguageDirection,
-                            chatId: Int,
+                            chatId: Chat.Id,
     ): Task[Option[CommonTranslation]] =
       getTranslation(chatId, text, languageDirection)
         .map(_.map(_.toCommonTranslation))
 
     override def addCommonTranslation(translation: CommonTranslation,
-                                      chatId: Int,
+                                      chatId: Chat.Id,
                                       languageDirection: LanguageDirection,
-                                      messageId: Int,
+                                      messageId: Message.Id,
     ): Task[UpdateResult] = {
       val mongoLanguageDirection = MongoLanguageDirection(languageDirection)
       getWordsColl(chatId)
@@ -117,11 +119,11 @@ object Mongo {
         .toTask
     }
 
-    override def deleteText(text: String, langDirection: LanguageDirection, chatId: Int): Task[DeleteResult] =
+    override def deleteText(text: Text.Checked, langDirection: LanguageDirection, chatId: Chat.Id): Task[DeleteResult] =
       getWordsColl(chatId)
         .deleteOne(
             filter = combine(
-                equal(CommonTranslationFields.text, text),
+                equal(CommonTranslationFields.text, text.value),
                 equal(
                     CommonTranslationFields.languageDirection,
                     MongoLanguageDirection(langDirection)
@@ -130,9 +132,9 @@ object Mongo {
         )
         .toTask
 
-    override def getUserData(chatId: Int): Task[Option[UserData]] =
+    override def getUserData(chatId: Chat.Id): Task[Option[UserData]] =
       usersDataColl
-        .find(filter = equal(UserDataFields.chatId, chatId))
+        .find(filter = equal(UserDataFields.chatId, chatId.value))
         .first()
         .toOptionTask
         .map(convertUserData)
@@ -140,52 +142,52 @@ object Mongo {
     override def setUserData(userData: UserData): Task[UpdateResult] =
       usersDataColl
         .replaceOne(
-            filter = equal(UserDataFields.chatId, userData.chatId),
+            filter = equal(UserDataFields.chatId, userData.chatId.value),
             replacement = MongoUserData(userData),
             repsert,
         )
         .toTask
 
-    override def setLanguageDirection(chatId: Int, languageDirection: LanguageDirection): Task[UpdateResult] =
+    override def setLanguageDirection(chatId: Chat.Id, languageDirection: LanguageDirection): Task[UpdateResult] =
       usersDataColl
         .updateOne(
-            equal(UserDataFields.chatId, chatId),
+            equal(UserDataFields.chatId, chatId.value),
             set(UserDataFields.langDir, MongoLanguageDirection(languageDirection)),
             upsert
         )
         .toTask
 
-    override def findLanguageDirectionForMessage(chatId: Int,
-                                                 text: String,
-                                                 messageId: Int,
+    override def findLanguageDirectionForMessage(chatId: Chat.Id,
+                                                 text: Text.Checked,
+                                                 messageId: Message.Id,
     ): Task[Option[LanguageDirection]] =
       getWordsColl(chatId)
         .find(
             combine(
-                equal(CommonTranslationFields.text, text),
-                equal(CommonTranslationFields.messageId, messageId)
+                equal(CommonTranslationFields.text, text.value),
+                equal(CommonTranslationFields.messageId, messageId.value)
             )
         )
         .map(_.languageDirection.toLanguageDirection)
         .toOptionTask
 
-    override def editTranslation(text: String,
+    override def editTranslation(text: Text.Checked,
                                  edit: String,
                                  languageDirection: LanguageDirection,
-                                 chatId: Int,
+                                 chatId: Chat.Id,
     ): Task[Option[UpdateResult]] =
       getTranslation(chatId, text, languageDirection).flatMap {
         case Some(mongoCommonTranslation) =>
           mongoCommonTranslation.messagedId match {
             case Some(messageId) =>
               val edited = mongoCommonTranslation.copy(edited = Some(edit)).toCommonTranslation
-              addCommonTranslation(edited, chatId, languageDirection, messageId).map(Some(_))
+              addCommonTranslation(edited, chatId, languageDirection, Message.Id(messageId)).map(Some(_))
             case None => ZIO.none
           }
         case None => ZIO.none
       }
 
-    override def getRandomWord(chatId: Int, languageDirection: LanguageDirection): Task[Option[CommonTranslation]] =
+    override def getRandomWord(chatId: Chat.Id, languageDirection: LanguageDirection): Task[Option[CommonTranslation]] =
       getWordsColl(chatId)
         .aggregate(
             Seq(
@@ -207,7 +209,7 @@ object Mongo {
     def convertUserData(maybeUserData: Option[MongoUserData]): Option[UserData] =
       maybeUserData.map { mongoUserData: MongoUserData =>
         UserData(
-            chatId = mongoUserData.chatId,
+            chatId = Chat.Id(mongoUserData.chatId),
             languageDirection = mongoUserData.languageDirection.map(convertLanguageDirection),
             decapitalization = mongoUserData.decapitalization,
         )

@@ -1,7 +1,12 @@
 package dev.shvimas.telegram.model
 
-case class MessageEntity(`type`: String,
-                         offset: Int,
-                         length: Int,
-                         url: Option[String],
-                         user: Option[User])
+import dev.shvimas.telegram.model.MessageEntity._
+
+case class MessageEntity(`type`: Type, offset: Offset, length: Length, url: Option[URL], user: Option[User])
+
+object MessageEntity {
+  case class Type(value: String) extends AnyVal
+  case class Offset(value: Int)  extends AnyVal
+  case class Length(value: Int)  extends AnyVal
+  case class URL(value: String)  extends AnyVal
+}

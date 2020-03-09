@@ -2,12 +2,13 @@ package dev.shvimas.garcon.model
 
 import java.nio.charset.StandardCharsets
 
+import dev.shvimas.telegram.model.CallbackQuery
 import scalapb.GeneratedMessage
 
 object CallbackDataHelper {
   private val charset = StandardCharsets.UTF_8
 
-  def fromString(s: String): Array[Byte] = s.getBytes(charset)
+  def fromString(s: CallbackQuery.Data): Array[Byte] = s.value.getBytes(charset)
 
-  def toString(msg: GeneratedMessage): String = msg.toByteString.toString(charset)
+  def toString(msg: GeneratedMessage): CallbackQuery.Data = CallbackQuery.Data(msg.toByteString.toString(charset))
 }

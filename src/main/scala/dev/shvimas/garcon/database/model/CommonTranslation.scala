@@ -22,6 +22,8 @@ case class CommonTranslation(text: String, translations: Map[String, String], ed
 
   def isEmpty: Boolean = translations.isEmpty
 
+  def nonEmpty: Boolean = translations.nonEmpty
+
   def mergeWith(other: CommonTranslation): CommonTranslation =
     copy(edited = edited.orElse(other.edited))
 }

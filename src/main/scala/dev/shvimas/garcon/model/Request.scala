@@ -1,7 +1,7 @@
 package dev.shvimas.garcon.model
 
 import dev.shvimas.garcon.model.proto.callback_data._
-import dev.shvimas.telegram.model.{CallbackQuery, Message, Update}
+import dev.shvimas.telegram.model._
 import dev.shvimas.translate.LanguageDirection
 import zio.ZIO
 
@@ -10,7 +10,7 @@ import scala.util.matching.Regex
 
 sealed trait Request
 
-case class TranslationRequest(text: String, chatId: Int, messageId: Int) extends Request
+case class TranslationRequest(text: Text.Unchecked, chatId: Chat.Id, messageId: Message.Id) extends Request
 
 sealed trait Command extends Request
 
@@ -24,19 +24,18 @@ object HelpCommand extends Command {
 
 sealed trait TestCommand extends Command
 
-case class TestStartCommand(languageDirection: Option[LanguageDirection], chatId: Int)
-    extends TestCommand
+case class TestStartCommand(languageDirection: Option[LanguageDirection], chatId: Chat.Id) extends TestCommand
 
 object TestStartCommand {
-  val pattern: Regex = s"test\\s*(.*)".r
+  val pattern: Regex = "test\\s*(.*)".r
 }
 
-case class TestNextCommand(languageDirection: LanguageDirection, chatId: Int) extends TestCommand
+case class TestNextCommand(languageDirection: LanguageDirection, chatId: Chat.Id) extends TestCommand
 
-case class TestShowCommand(text: String, languageDirection: LanguageDirection, chatId: Int)
+case class TestShowCommand(text: Text.Unchecked, languageDirection: LanguageDirection, chatId: Chat.Id)
     extends TestCommand
 
-case class ChooseCommand(languageDirection: LanguageDirection, chatId: Int) extends Command
+case class ChooseCommand(languageDirection: LanguageDirection, chatId: Chat.Id) extends Command
 
 object ChooseCommand {
   val pattern: Regex = "choose (.*)".r
@@ -48,13 +47,13 @@ object DeleteCommand {
   val pattern: Regex = "delete(.*)".r
 }
 
-case class DeleteByReply(reply: Message, chatId: Int) extends DeleteCommand
+case class DeleteByReply(reply: Message, chatId: Chat.Id) extends DeleteCommand
 
 object DeleteByReply {
   val pattern: Regex = "\\s*".r
 }
 
-case class DeleteByText(text: String, languageDirection: LanguageDirection, chatId: Int)
+case class DeleteByText(text: Text.Unchecked, languageDirection: LanguageDirection, chatId: Chat.Id)
     extends DeleteCommand
 
 object DeleteByText {
@@ -82,7 +81,7 @@ object EditCommand {
   val pattern: Regex = "edit(.*)".r
 }
 
-case class EditByReply(reply: Message, edit: String, chatId: Int) extends EditCommand
+case class EditByReply(reply: Message, edit: String, chatId: Chat.Id) extends EditCommand
 
 object EditByReply {
   val pattern: Regex = "\\s*(.*)\\s*".r
@@ -114,7 +113,7 @@ object RequestParser {
     message.text match {
       case None => ZIO.succeed(EmptyMessage)
       case Some(text) =>
-        text match {
+        text.value match {
           case Command.pattern(command) =>
             ZIO.effect(parseCommand(command, message))
           case toBeTranslated =>

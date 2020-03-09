@@ -1,43 +1,41 @@
 package dev.shvimas.garcon.database
 
 import dev.shvimas.garcon.database.model._
+import dev.shvimas.garcon.model.Text
+import dev.shvimas.telegram.model.{Chat, Message}
+import dev.shvimas.telegram.Bot
 import dev.shvimas.translate.LanguageDirection
 import org.mongodb.scala.result.{DeleteResult, UpdateResult}
 import zio.Task
 
 trait Database {
-  def updateOffset(offset: Long): Task[UpdateResult]
+  def updateOffset(offset: Bot.Offset): Task[UpdateResult]
 
-  def getOffset: Task[Long]
+  def getOffset: Task[Bot.Offset]
 
   def addCommonTranslation(translation: CommonTranslation,
-                           chatId: Int,
+                           chatId: Chat.Id,
                            languageDirection: LanguageDirection,
-                           messageId: Int,
+                           messageId: Message.Id,
   ): Task[UpdateResult]
 
-  def lookUpText(text: String,
-                 languageDirection: LanguageDirection,
-                 chatId: Int,
-  ): Task[Option[CommonTranslation]]
+  def lookUpText(text: Text.Checked, languageDirection: LanguageDirection, chatId: Chat.Id): Task[Option[CommonTranslation]]
 
-  def getUserData(chatId: Int): Task[Option[UserData]]
+  def getUserData(chatId: Chat.Id): Task[Option[UserData]]
 
   def setUserData(userData: UserData): Task[UpdateResult]
 
-  def setLanguageDirection(chatId: Int, languageDirection: LanguageDirection): Task[UpdateResult]
+  def setLanguageDirection(chatId: Chat.Id, languageDirection: LanguageDirection): Task[UpdateResult]
 
-  def findLanguageDirectionForMessage(chatId: Int,
-                                      text: String,
-                                      messageId: Int): Task[Option[LanguageDirection]]
+  def findLanguageDirectionForMessage(chatId: Chat.Id, text: Text.Checked, messageId: Message.Id): Task[Option[LanguageDirection]]
 
-  def deleteText(text: String, langDirection: LanguageDirection, chatId: Int): Task[DeleteResult]
+  def deleteText(text: Text.Checked, langDirection: LanguageDirection, chatId: Chat.Id): Task[DeleteResult]
 
-  def editTranslation(text: String,
+  def editTranslation(text: Text.Checked,
                       edit: String,
                       languageDirection: LanguageDirection,
-                      chatId: Int,
-                     ): Task[Option[UpdateResult]]
+                      chatId: Chat.Id,
+  ): Task[Option[UpdateResult]]
 
-  def getRandomWord(chatId: Int, languageDirection: LanguageDirection): Task[Option[CommonTranslation]]
+  def getRandomWord(chatId: Chat.Id, languageDirection: LanguageDirection): Task[Option[CommonTranslation]]
 }
