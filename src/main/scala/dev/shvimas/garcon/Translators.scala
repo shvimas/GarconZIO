@@ -15,19 +15,26 @@ trait Translators {
 
 object Translators {
 
-  trait Live extends Translators {
+  trait Service extends Translators {
+    protected def abbyyApiKey: String
+    protected def yandexApiKey: String
 
-    import Live._
+    override lazy val abbyyTranslator: Translator  = AbbyyTranslator(abbyyApiKey)
+    override lazy val yandexTranslator: Translator = YandexTranslator(yandexApiKey)
 
-    override val abbyyTranslator: Translator  = AbbyyTranslator(abbyyApiKey)
-    override val yandexTranslator: Translator = YandexTranslator(yandexApiKey)
-
-    override val supportedTranslators: Map[String, Translator] = Map(
+    override lazy val supportedTranslators: Map[String, Translator] = Map(
         CommonTranslationFields.abbyy  -> abbyyTranslator,
         CommonTranslationFields.yandex -> yandexTranslator,
     )
 
-    override val defaultTranslator: Translator = supportedTranslators(Defaults.translatorName)
+    override lazy val defaultTranslator: Translator = supportedTranslators(Defaults.translatorName)
+  }
+
+  trait Live extends Service {
+
+    override protected def abbyyApiKey: String = Live.abbyyApiKey
+
+    override protected def yandexApiKey: String = Live.yandexApiKey
   }
 
   private object Live {
