@@ -1,8 +1,8 @@
 package dev.shvimas.translate.abbyy
 
+import com.github.plokhotnyuk.jsoniter_scala.core._
+import com.github.plokhotnyuk.jsoniter_scala.macros._
 import dev.shvimas.translate.Translation
-import org.json4s.{DefaultFormats, Formats}
-import org.json4s.native.JsonMethods.parse
 
 import scala.util.Try
 
@@ -18,10 +18,14 @@ case class AbbyyTranslation(
 }
 
 object AbbyyTranslation {
-  implicit private val formats: Formats = DefaultFormats
+  private val codec: JsonValueCodec[AbbyyTranslation] =
+    JsonCodecMaker.make(
+        CodecMakerConfig
+          .withFieldNameMapper(JsonCodecMaker.EnforcePascalCase)
+    )
 
-  def fromString(string: String): Try[AbbyyTranslation] =
-    Try(parse(string).camelizeKeys.extract[AbbyyTranslation])
+  def fromJson(bytes: Array[Byte]): Try[AbbyyTranslation] =
+    Try(readFromArray(bytes)(codec))
 }
 
 case class WordListItem(

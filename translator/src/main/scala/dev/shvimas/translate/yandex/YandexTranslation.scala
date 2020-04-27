@@ -1,8 +1,8 @@
 package dev.shvimas.translate.yandex
 
+import com.github.plokhotnyuk.jsoniter_scala.core._
+import com.github.plokhotnyuk.jsoniter_scala.macros._
 import dev.shvimas.translate.Translation
-import org.json4s.{DefaultFormats, Formats}
-import org.json4s.native.JsonMethods.parse
 
 import scala.util.Try
 
@@ -15,9 +15,13 @@ case class YandexTranslationJsonRepr(code: Int, lang: String, text: List[String]
 
 object YandexTranslation {
 
-  implicit private val formats: Formats = DefaultFormats
+  private val codec: JsonValueCodec[YandexTranslationJsonRepr] =
+    JsonCodecMaker.make(
+        CodecMakerConfig
+          .withFieldNameMapper(JsonCodecMaker.enforceCamelCase)
+    )
 
-  def fromJson(json: String, text: String): Try[YandexTranslation] =
-    Try(parse(json).extract[YandexTranslationJsonRepr])
+  def fromJson(bytes: Array[Byte], text: String): Try[YandexTranslation] =
+    Try(readFromArray(bytes)(codec))
       .map(YandexTranslation(_, text))
 }

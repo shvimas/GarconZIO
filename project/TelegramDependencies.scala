@@ -3,8 +3,8 @@ import sbt._
 object TelegramDependencies {
   val all: Seq[ModuleID] = Seq(
     "dev.zio" %% "zio" % Versions.zio,
-    "org.json4s" %% "json4s-ext" % Versions.json4s,
-    "org.json4s" %% "json4s-native" % Versions.json4s,
+    "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % Versions.jsonIter,
+    "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % Versions.jsonIter % Provided,
     "com.softwaremill.sttp" %% "core" % Versions.sttpCore,
     
     "com.typesafe.scala-logging" %% "scala-logging" % Versions.logging,

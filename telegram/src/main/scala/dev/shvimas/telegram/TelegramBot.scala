@@ -2,11 +2,11 @@ package dev.shvimas.telegram
 
 import java.util.concurrent.TimeUnit
 
+import com.github.plokhotnyuk.jsoniter_scala.core._
 import com.softwaremill.sttp._
 import com.typesafe.scalalogging.StrictLogging
 import dev.shvimas.telegram.model._
-import org.json4s.{DefaultFormats, Formats}
-import org.json4s.native.JsonMethods.parse
+import dev.shvimas.telegram.model.JsonImplicits._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
@@ -15,7 +15,7 @@ case class ApiRequestError(message: String) extends Exception(message)
 
 class TelegramBot(settings: TelegramBotSettings) extends Bot with StrictLogging {
 
-  implicit val defaultBackend: SttpBackend[Id, Nothing] =
+  implicit private val defaultBackend: SttpBackend[Id, Nothing] =
     HttpURLConnectionBackend(
         SttpBackendOptions(
             FiniteDuration(20, TimeUnit.SECONDS),
@@ -23,17 +23,15 @@ class TelegramBot(settings: TelegramBotSettings) extends Bot with StrictLogging 
         )
     )
 
-  implicit val defaultFormats: DefaultFormats.type = DefaultFormats
+  private val request: RequestT[Empty, Array[Byte], Nothing] =
+    sttp.response(asByteArray)
 
-  def callApi[R](method: String, params: Map[String, String])(
-      implicit formats: Formats = defaultFormats,
-      manifest: Manifest[R]
-  ): Try[R] =
+  def callApi[R: JsonValueCodec](method: String, params: Map[String, String]): Try[R] =
     for {
       uri        <- Try(uri"https://api.telegram.org/bot${settings.token}/$method?$params")
-      bodyEither <- Try(sttp.get(uri).send().body)
+      bodyEither <- Try(request.get(uri).send().body)
       body       <- bodyEither.left.map(ApiRequestError).toTry
-      result     <- Try(parse(body).camelizeKeys.extract[R])
+      result     <- Try(readFromArray[R](body))
     } yield result
 
   def getMe: Try[GetMeResult] =

@@ -2,33 +2,29 @@ package dev.shvimas.translate.abbyy
 
 import com.softwaremill.sttp._
 import dev.shvimas.translate._
+import dev.shvimas.translate.abbyy.AbbyyTranslator._
 import dev.shvimas.translate.LanguageCode.LanguageCode
 
 import scala.util.{Failure, Success, Try}
 
-
-case class AbbyyRequestError(response: Response[String]) extends Exception(s"$response")
-
 class AbbyyTranslator(private val apiKey: String) extends Translator {
-
-  import AbbyyTranslator._
 
   override type LanguageCodeImpl = Int
 
   override def translateImpl(text: String,
                              srcLang: LanguageCodeImpl,
                              dstLang: LanguageCodeImpl,
-                            ): Try[AbbyyTranslation] = {
+  ): Try[AbbyyTranslation] = {
     def translationRequest(token: String): Try[AbbyyTranslation] = {
-      val response: Id[Response[String]] =
-        sttp.get(uri"$baseUrl/api/v1/Minicard?text=$text&srcLang=$srcLang&dstLang=$dstLang")
-          .header("Authorization", f"Bearer $token")
-          .contentLength(0)
-          .send()
+      val response: Id[Response[Array[Byte]]] = request
+        .get(uri"$baseUrl/api/v1/Minicard?text=$text&srcLang=$srcLang&dstLang=$dstLang")
+        .header("Authorization", f"Bearer $token")
+        .contentLength(0)
+        .send()
 
       response.body match {
-        case Right(r) => AbbyyTranslation.fromString(r)
-        case Left(_) => Failure(AbbyyRequestError(response))
+        case Right(bytes) => AbbyyTranslation.fromJson(bytes)
+        case Left(_)      => Failure(AbbyyRequestError(response))
       }
     }
 
@@ -61,9 +57,9 @@ class AbbyyTranslator(private val apiKey: String) extends Translator {
       .body("")
       .send()
 
-      response.body match {
-        case Right(s) => Success(s)
-        case Left(_) => Failure(AbbyyRequestError(response))
+    response.body match {
+      case Right(s) => Success(s)
+      case Left(_)  => Failure(AbbyyRequestError(response))
     }
   }
 
@@ -74,8 +70,12 @@ class AbbyyTranslator(private val apiKey: String) extends Translator {
     }
 }
 
+private case class AbbyyRequestError[Body](response: Response[Body]) extends Exception(response.toString())
+
 object AbbyyTranslator {
-  implicit val backend: SttpBackend[Id, Nothing] = HttpURLConnectionBackend()
+  implicit private[abbyy] val backend: SttpBackend[Id, Nothing] = HttpURLConnectionBackend()
+
+  private val request: RequestT[Empty, Array[Byte], Nothing] = sttp.response(asByteArray)
 
   private val baseUrl = "https://developers.lingvolive.com"
 

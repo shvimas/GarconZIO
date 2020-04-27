@@ -2,7 +2,7 @@ object Versions {
   val catsCore = "1.6.0"
   val zio = "1.0.0-RC16"
 
-  val json4s = "3.6.5"
+  val jsonIter = "2.1.15"
   val sttpCore = "1.5.11"
   val mongoDriver = "2.6.0"
   val config = "1.3.3"

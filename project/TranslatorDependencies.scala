@@ -4,8 +4,8 @@ object TranslatorDependencies {
   val all: Seq[ModuleID] = Seq(
     "dev.zio" %% "zio" % Versions.zio,
     "org.typelevel" %% "cats-core" % Versions.catsCore,
-    "org.json4s" %% "json4s-native" % Versions.json4s,
-    "org.json4s" %% "json4s-ext" % Versions.json4s,
+    "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % Versions.jsonIter,
+    "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % Versions.jsonIter % Provided,
     "com.softwaremill.sttp" %% "core" % Versions.sttpCore,
     "com.typesafe" % "config" % Versions.config,
 
