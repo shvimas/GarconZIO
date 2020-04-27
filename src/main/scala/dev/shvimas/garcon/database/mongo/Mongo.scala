@@ -20,7 +20,7 @@ import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.model.{ReplaceOptions, UpdateOptions}
 import org.mongodb.scala.model.Aggregates._
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.model.Updates.{combine, max, set}
+import org.mongodb.scala.model.Updates.{combine, set}
 import org.mongodb.scala.result.{DeleteResult, UpdateResult}
 import zio.{Task, ZIO}
 
@@ -64,7 +64,7 @@ object Mongo {
       globalsColl
         .updateOne(
             filter = emptyBson,
-            update = max(GlobalsFields.offset, offset.value),
+            update = set(GlobalsFields.offset, offset.value),
             options = upsert
         )
         .toTask
