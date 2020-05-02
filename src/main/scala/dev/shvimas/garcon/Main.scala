@@ -111,10 +111,11 @@ object Main extends App with ZIOLogging {
       ZIO
         .accessM[Database](_.deleteText(text, languageDirection, chatId))
         .map { result =>
+          val textValue = text.value
           if (result.wasAcknowledged()) {
-            Right(s"Deleted $text ($languageDirection)")
+            Right(s"Deleted $textValue ($languageDirection)")
           } else {
-            Left(s"Failed to delete $text ($languageDirection)")
+            Left(s"Failed to delete $textValue ($languageDirection)")
           }
         }
 
@@ -132,7 +133,7 @@ object Main extends App with ZIOLogging {
                   case Some(languageDirection) =>
                     deleteText(text, languageDirection, chatId)
                   case None =>
-                    ZIO.succeed(Left(s"Couldn't delete $text (failed to find language direction)"))
+                    ZIO.succeed(Left(s"Couldn't delete ${text.value} (failed to find language direction)"))
                 }
               } yield result
             case None =>
@@ -165,7 +166,7 @@ object Main extends App with ZIOLogging {
               }
             } else FailedEditResponse("Database request was not acknowledged")
           case None =>
-            FailedEditResponse(s"Couldn't edit $text (failed to find translation)")
+            FailedEditResponse(s"Couldn't edit ${text.value} (failed to find translation)")
         }
 
     command match {
@@ -179,7 +180,7 @@ object Main extends App with ZIOLogging {
                 case Some(languageDirection) =>
                   editTranslation(text, edit, chatId, languageDirection)
                 case None =>
-                  ZIO.succeed(FailedEditResponse(s"Couldn't edit $text (failed to find language direction)"))
+                  ZIO.succeed(FailedEditResponse(s"Couldn't edit ${text.value} (failed to find language direction)"))
               }
             } yield response
           case None =>
@@ -215,7 +216,7 @@ object Main extends App with ZIOLogging {
             if (result.wasAcknowledged()) {
               SuccessfulChooseResponse(languageDirection)
             } else {
-              FailedChooseResponse("saving language direction was not acknowledged", languageDirection)
+              FailedChooseResponse("Saving language direction was not acknowledged", languageDirection)
             }
           }
     }
