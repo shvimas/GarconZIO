@@ -6,7 +6,7 @@ import zio.test.{assertM, Assertion, TestResult}
 import zio.test.Assertion.{equalTo, hasField}
 
 object Common {
-  val config: Config = ConfigFactory.load("private/secrets.conf")
+  val config: Config = ConfigFactory.load("private/test_api_keys.conf")
 
   def makeTranslationTest(translator: Translator,
                           text: String,
