@@ -13,9 +13,7 @@ object BotInteraction {
   type SendResponsesResults = List[(Chat.Id, Either[Throwable, List[SendMessageResult]])]
 
   def sendResponses(results: AllResults): ZIO[Bot, Nothing, SendResponsesResults] =
-    ZIO.collectAllPar(
-        results.map { case (chatId, resultsPerUser) => sendPerUsersResponses(chatId, resultsPerUser) }
-    )
+    ZIO.foreachPar(results) { case (chatId, resultsPerUser) => sendPerUsersResponses(chatId, resultsPerUser) }
 
   private def sendPerUsersResponses(
       chatId: Chat.Id,

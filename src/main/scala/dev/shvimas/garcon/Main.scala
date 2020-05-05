@@ -59,10 +59,10 @@ object Main extends App with ZIOLogging {
     val zGroupedUpdates: Task[Map[Chat.Id, List[Update]]] =
       for {
         grouped <- ZIO.effect(getUpdatesResult.result.groupBy(_.chatId))
-        processed <- ZIO.collectAll(grouped.map {
+        processed <- ZIO.foreach(grouped) {
           case (Some(chatId), updates) => ZIO.some(chatId -> updates)
           case (None, updates)         => processOrphanUpdates(updates).as(None)
-        })
+        }
       } yield processed.flatten.toMap
     zGroupedUpdates
       .tapError(zioLogger.error("While grouping updates", _))
@@ -72,19 +72,17 @@ object Main extends App with ZIOLogging {
   def respondWith(results: AllResults): ZIO[Bot, Nothing, Unit] =
     for {
       sendResponsesResult <- sendResponses(results)
-      _ <- ZIO.collectAll(
-          sendResponsesResult.map {
-            case (chatId, Left(throwable: Throwable)) =>
-              zioLogger.error(s"Failed to send responses to $chatId", throwable)
-            case (chatId, Right(sendMessageResults: List[SendMessageResult])) =>
-              // TODO: resend if not ok?
-              zioLogger.info(
-                  s"""Send message results for $chatId:
-                     |${sendMessageResults.mkString("\n")}
-                     |""".stripMargin
-              )
-          }
-      )
+      _ <- ZIO.foreach(sendResponsesResult) {
+        case (chatId, Left(throwable: Throwable)) =>
+          zioLogger.error(s"Failed to send responses to $chatId", throwable)
+        case (chatId, Right(sendMessageResults: List[SendMessageResult])) =>
+          // TODO: resend if not ok?
+          zioLogger.info(
+              s"""Send message results for $chatId:
+                 |${sendMessageResults.mkString("\n")}
+                 |""".stripMargin
+          )
+      }
     } yield ()
 
   def processTranslationRequest(request: TranslationRequest): RIO[Database with Translators, TranslationResponse] =
@@ -223,32 +221,19 @@ object Main extends App with ZIOLogging {
 
   def processUpdate(update: Update): ZIO[Database with Translators, Throwable, Response] =
     RequestParser.parseUpdate(update).flatMap {
-      case request: TranslationRequest =>
-        processTranslationRequest(request)
-      case command: DeleteCommand =>
-        processDeleteCommand(command)
-      case command: EditCommand =>
-        processEditCommand(command)
-      case command: TestCommand =>
-        processTestCommand(command)
-      case command: ChooseCommand =>
-        processChooseRequest(command)
-      case DecapitalizeCommand(state) =>
-        ZIO.succeed(DecapitalizeResponse(state))
-      case HelpCommand =>
-        ZIO.succeed(HelpResponse)
-      case MalformedCommand(desc) =>
-        ZIO.succeed(MalformedCommandResponse(desc))
-      case UnrecognisedCommand(command) =>
-        ZIO.succeed(UnrecognisedCommandResponse(command))
-      case EmptyUpdate =>
-        ZIO.succeed(EmptyUpdateResponse)
-      case EmptyMessage =>
-        ZIO.succeed(EmptyMessageResponse)
-      case EmptyCallbackData =>
-        ZIO.succeed(EmptyCallbackDataResponse)
-      case BothMessageAndCallback =>
-        ZIO.succeed(BothMessageAndCallbackResponse(update))
+      case request: TranslationRequest  => processTranslationRequest(request)
+      case command: DeleteCommand       => processDeleteCommand(command)
+      case command: EditCommand         => processEditCommand(command)
+      case command: TestCommand         => processTestCommand(command)
+      case command: ChooseCommand       => processChooseRequest(command)
+      case DecapitalizeCommand(state)   => ZIO.effect(DecapitalizeResponse(state))
+      case HelpCommand                  => ZIO.effect(HelpResponse)
+      case MalformedCommand(desc)       => ZIO.effect(MalformedCommandResponse(desc))
+      case UnrecognisedCommand(command) => ZIO.effect(UnrecognisedCommandResponse(command))
+      case EmptyUpdate                  => ZIO.effect(EmptyUpdateResponse)
+      case EmptyMessage                 => ZIO.effect(EmptyMessageResponse)
+      case EmptyCallbackData            => ZIO.effect(EmptyCallbackDataResponse)
+      case BothMessageAndCallback       => ZIO.effect(BothMessageAndCallbackResponse(update))
     }
 
   case class ErrorWithInfo(error: Throwable, update: Update)
@@ -260,21 +245,16 @@ object Main extends App with ZIOLogging {
   ): ZIO[Database with Translators, Nothing, AllResults] =
     // important that error type is Nothing in inner collect
     // otherwise collectAllPar could interrupt other users' processing
-    ZIO.collectAllPar(
-        updateGroups.map {
-          case (chatId, updates) =>
-            ZIO
-              .collectAll(
-                  updates.map(
-                      update =>
-                        processUpdate(update)
-                          .mapError(ErrorWithInfo(_, update))
-                          .either
-                  )
-              )
-              .map(chatId -> _)
-        }
-    )
+    ZIO.foreachPar(updateGroups) {
+      case (chatId, updates) =>
+        ZIO
+          .foreach(updates) { update =>
+            processUpdate(update)
+              .mapError(ErrorWithInfo(_, update))
+              .either
+          }
+          .map(chatId -> _)
+    }
 
   private def processOrphanUpdates(orphanUpdates: Seq[Update]): UIO[Unit] =
     zioLogger.warn(
