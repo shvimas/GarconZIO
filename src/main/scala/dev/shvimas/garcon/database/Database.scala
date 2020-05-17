@@ -21,9 +21,9 @@ object Database {
                              messageId: Message.Id,
     ): Task[UpdateResult]
 
-    def lookUpText(text: Text.Checked,
-                   languageDirection: LanguageDirection,
-                   chatId: Chat.Id,
+  def lookUpText(text: Text.Checked,
+                 languageDirection: LanguageDirection,
+                 chatId: Chat.Id,
     ): Task[Option[CommonTranslation]]
 
     def getUserData(chatId: Chat.Id): Task[Option[UserData]]
@@ -32,9 +32,9 @@ object Database {
 
     def setLanguageDirection(chatId: Chat.Id, languageDirection: LanguageDirection): Task[UpdateResult]
 
-    def findLanguageDirectionForMessage(chatId: Chat.Id,
-                                        text: Text.Checked,
-                                        messageId: Message.Id,
+  def findLanguageDirectionForMessage(chatId: Chat.Id,
+                                      text: Text.Checked,
+                                      messageId: Message.Id,
     ): Task[Option[LanguageDirection]]
 
     def deleteText(text: Text.Checked, langDirection: LanguageDirection, chatId: Chat.Id): Task[DeleteResult]
@@ -45,6 +45,8 @@ object Database {
                         chatId: Chat.Id,
     ): Task[Option[UpdateResult]]
 
-    def getRandomWord(chatId: Chat.Id, languageDirection: LanguageDirection): Task[Option[CommonTranslation]]
+    def getRandomWords(chatId: Chat.Id,
+                     languageDirection: LanguageDirection,
+                     numWords: Int): Task[Seq[CommonTranslation]]
   }
 }

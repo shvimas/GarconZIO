@@ -1,8 +1,13 @@
 package dev.shvimas.garcon.testing
 
+import dev.shvimas.garcon.testing.TestingService.Guess
+
 case class TestingStats(tries: Int, successes: Int, indices: List[Int]) {
-  def increment(success: Boolean): TestingStats = {
-    copy(successes = successes + (if (success) 1 else 0))
+  def increment(guess: Guess): TestingStats = {
+    guess match {
+      case TestingService.Success(_) => copy(successes = successes + 1, tries = tries + 1)
+      case TestingService.Failure(_) => copy(tries = tries + 1)
+    }
   }
 
   def addIndex(index: Int): TestingStats =

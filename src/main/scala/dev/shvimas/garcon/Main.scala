@@ -7,9 +7,12 @@ import dev.shvimas.translate.LanguageDirection
 import dev.shvimas.ZIOLogging
 import dev.shvimas.garcon.database.mongo.Mongo
 import dev.shvimas.garcon.database.DatabaseOps
+import dev.shvimas.garcon.misc.SafeRandom
+import dev.shvimas.garcon.testing.TestingServiceProvider
 import org.mongodb.scala.result.UpdateResult
 import zio.{ZIO, _}
 import zio.duration._
+import zio.random.Random
 
 object Main extends App with ZIOLogging {
 
@@ -17,7 +20,7 @@ object Main extends App with ZIOLogging {
   import dev.shvimas.garcon.DatabaseInteraction._
   import dev.shvimas.garcon.TranslatorsInteraction._
 
-  type GarconEnv = Has[Bot] with Database with Translators
+  type GarconEnv = Has[Bot] with Database with Translators with Random
 
   private def makeTelegramBot(config: TelegramBotConfig): ZIO[Has[TelegramBotConfig], Throwable, TelegramBot] =
     for {
@@ -36,7 +39,7 @@ object Main extends App with ZIOLogging {
   val translators: Layer[Throwable, Translators] = MainConfig.translatorsConfig >>> Translators.live
 
   val garconLayer: ULayer[GarconEnv] =
-    (bot ++ database ++ translators)
+    (bot ++ database ++ translators ++ Random.live)
       .logOnError("Failed to construct common layer from config")
       .orDie
 
@@ -204,17 +207,20 @@ object Main extends App with ZIOLogging {
     }
   }
 
-  def processTestCommand(command: TestCommand): ZIO[Database, Throwable, TestResponse] =
+  def processTestCommand(command: TestCommand): ZIO[SafeRandom with Database, Throwable, TestResponse] =
     command match {
       case TestStartCommand(maybeLanguageDirection, chatId) =>
         val languageDirection = maybeLanguageDirection.getOrElse(Defaults.languageDirection)
-        DatabaseOps
-          .getRandomWord(chatId, languageDirection)
-          .map(TestStartResponse(_, languageDirection))
+        val temp: ZIO[SafeRandom with Database, Throwable, TestStartResponse] = for {
+          service <- TestingServiceProvider.refresh(chatId, languageDirection)
+          translation <- service.nextTranslation
+        } yield TestStartResponse(maybeTranslation, languageDirection)
+        temp
       case TestNextCommand(languageDirection, chatId) =>
-        DatabaseOps
-          .getRandomWord(chatId, languageDirection)
-          .map(TestNextResponse(_, languageDirection))
+        for {
+          service          <- TestingServiceProvider.get(chatId, languageDirection)
+          translation <- service.nextTranslation
+        } yield TestNextResponse(maybeTranslation, languageDirection)
       case TestShowCommand(text, languageDirection, chatId) =>
         for {
           preparedText     <- Text.prepareText(text, chatId)
@@ -236,7 +242,7 @@ object Main extends App with ZIOLogging {
           }
     }
 
-  def processUpdate(update: Update): ZIO[Database with Translators, Throwable, Response] =
+  def processUpdate(update: Update): ZIO[Database with Translators with Random, Throwable, Response] =
     RequestParser.parseUpdate(update).flatMap {
       case request: TranslationRequest  => processTranslationRequest(request)
       case command: DeleteCommand       => processDeleteCommand(command)
@@ -259,7 +265,7 @@ object Main extends App with ZIOLogging {
 
   def processGroupedUpdates(
       updateGroups: Map[Chat.Id, List[Update]],
-  ): ZIO[Database with Translators, Nothing, AllResults] =
+  ): ZIO[Database with Translators with Random, Nothing, AllResults] =
     // important that error type is Nothing in inner collect
     // otherwise collectAllPar could interrupt other users' processing
     ZIO.foreachPar(updateGroups.toList) {

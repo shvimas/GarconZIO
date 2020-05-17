@@ -47,8 +47,9 @@ object TestDatabase {
                                  chatId: Chat.Id,
     ): Task[Option[UpdateResult]] = throw new NotImplementedError()
 
-    override def getRandomWord(chatId: Chat.Id,
-                               languageDirection: LanguageDirection,
-    ): Task[Option[CommonTranslation]] = throw new NotImplementedError()
+    override def getRandomWords(chatId: Chat.Id,
+                                languageDirection: LanguageDirection,
+                                numWords: Int,
+    ): Task[Seq[CommonTranslation]] = throw new NotImplementedError()
   }
 }

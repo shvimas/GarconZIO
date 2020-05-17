@@ -60,8 +60,9 @@ object DatabaseOps {
   ): ZIO[Database, Throwable, Option[UpdateResult]] =
     ZIO.accessM[Database](_.get.editTranslation(text, edit, languageDirection, chatId))
 
-  def getRandomWord(chatId: Chat.Id,
-                    languageDirection: LanguageDirection,
-  ): ZIO[Database, Throwable, Option[CommonTranslation]] =
-    ZIO.accessM[Database](_.get.getRandomWord(chatId, languageDirection))
+  def getRandomWords(chatId: Chat.Id,
+                     languageDirection: LanguageDirection,
+                     numWords: Int,
+  ): ZIO[Database, Throwable, Seq[CommonTranslation]] =
+    ZIO.accessM[Database](_.get.getRandomWords(chatId, languageDirection, numWords))
 }

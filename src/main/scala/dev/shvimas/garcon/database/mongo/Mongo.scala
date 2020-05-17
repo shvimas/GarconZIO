@@ -16,6 +16,7 @@ import org.mongodb.scala._
 import org.mongodb.scala.bson.codecs.Macros._
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
+import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.model.{ReplaceOptions, UpdateOptions}
 import org.mongodb.scala.model.Aggregates._
 import org.mongodb.scala.model.Filters.equal
@@ -206,21 +207,25 @@ object Mongo {
         case None => ZIO.none
       }
 
-    override def getRandomWord(chatId: Chat.Id, languageDirection: LanguageDirection): Task[Option[CommonTranslation]] =
+    /**
+      * Returns randomly sampled words with needed language direction.
+      * NB: sample may contain repeated elements
+      * */
+    override def getRandomWords(chatId: Chat.Id,
+                                languageDirection: LanguageDirection,
+                                numWords: Int): Task[Seq[CommonTranslation]] = {
+      val filter: Bson = `match`(
+          equal(
+              CommonTranslationFields.languageDirection,
+              MongoLanguageDirection(languageDirection)
+          )
+      )
+      val pipeline = Seq(filter, sample(numWords))
       getWordsColl(chatId)
-        .aggregate(
-            Seq(
-                `match`(
-                    equal(
-                        CommonTranslationFields.languageDirection,
-                        MongoLanguageDirection(languageDirection)
-                    )
-                ),
-                sample(1),
-            )
-        )
+        .aggregate(pipeline)
         .map(_.toCommonTranslation)
-        .toOptionTask
+        .toSeqTask
+    }
   }
 
   private object Helpers {
@@ -234,7 +239,7 @@ object Mongo {
     }
 
     implicit class RichObservable[T](inner: Observable[T]) {
-//      def toSeqTask: Task[Seq[T]]       = fromFuture(inner.toFuture())
+      def toSeqTask: Task[Seq[T]]       = fromFuture(inner.toFuture())
       def toOptionTask: Task[Option[T]] = fromFuture(inner.headOption())
     }
 

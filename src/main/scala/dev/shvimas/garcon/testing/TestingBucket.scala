@@ -1,57 +1,75 @@
 package dev.shvimas.garcon.testing
 
 import dev.shvimas.garcon.database.model.CommonTranslation
+import dev.shvimas.garcon.misc.SafeRandom
+import dev.shvimas.garcon.testing.TestingBucket._
+import dev.shvimas.garcon.testing.TestingService._
+import zio.stm._
+import zio.{IO, ZIO}
 
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
+class TestingBucket(perWordStats: TMap[CommonTranslation, Stats], numSuccessesToDrop: Int) {
 
-/**
-  * Not intended to be thread-safe.
-  * <p>
-  * Uses a simple strategy: starts with all words' probabilities distributed evenly
-  * and increases it when user fails to translate.
-  * If user successfully translates the word then probability should decrease but never reach zero.
-  * A word should be removed once it is guessed `numSuccessesToDrop` times in a row.
-  * */
-class TestingBucket(translations: Seq[CommonTranslation],
-                    numSuccessesToDrop: Int) {
-  private[testing] val translationsWithRepeats: ArrayBuffer[CommonTranslation] =
-    new ArrayBuffer[CommonTranslation](translations.length * 2) ++= translations
+  def nextWord: ZIO[SafeRandom, NextWordError, CommonTranslation] = {
+    def getRandomWord(words: Seq[CommonTranslation]): ZIO[SafeRandom, NextWordError, CommonTranslation] =
+      for {
+        index <- SafeRandom
+          .nextIntBounded(words.length)
+          .mapError(err => Unrecoverable(s"negative bound (${err.negativeValue}) for SafeRandom.nextIntBounded"))
+        word <- ZIO.effect(words(index)).mapError(RuntimeError)
+      } yield word
 
-  private[testing] val initialPositions =
-    mutable.Map(translations.zipWithIndex: _*)
-
-  private[testing] val stats: mutable.Map[CommonTranslation, TestingStats] = {
-    val elems = translations zip Stream.continually(TestingStats.empty)
-    mutable.Map(elems: _*)
+    for {
+      // 'statsList' is an immutable view of `perWordStats` at the moment of the commit
+      // therefore it is fine to use it outside of a transaction
+      statsList <- perWordStats.toList.commit
+      words = statsList.flatMap { case (word, stats) => Seq.fill(stats.weight)(word) }
+      word <- getRandomWord(words)
+    } yield word
   }
 
-  private val rnd = new Random
-
-  def randomTranslation: CommonTranslation = {
-    val index = rnd.nextInt(translationsWithRepeats.length)
-    translationsWithRepeats(index)
+  def update(guess: Guess): IO[UnexpectedWord, UpdateStatus] = {
+    val translation = guess.translation
+    val stmUpdateStatus: STM[UnexpectedWord, UpdateStatus] = for {
+      stats  <- perWordStats.get(translation).flatMap(STM.fromOption).orElseFail(UnexpectedWord(translation.text))
+      _      <- updateInnerState(stats.update(guess), translation)
+      status <- STM.ifM(perWordStats.size.map(_ < 3))(STM.succeed(NeedRebuild), STM.succeed(Ok))
+    } yield status
+    stmUpdateStatus.commit
   }
 
-  def addStats(translation: CommonTranslation, guessed: Boolean): Unit = {
-    require(stats contains translation, s"unexpected translation: $translation")
-    val curStats = stats(translation).increment(guessed)
-    if (guessed) {
-      if (curStats.successes >= numSuccessesToDrop) {
-        translationsWithRepeats.remove(initialPositions(translation))
-        initialPositions.remove(translation)
-        stats.remove(translation)
-      } else {
-        curStats.indices.headOption.foreach(translationsWithRepeats.remove)
-        val updatedStats = curStats.dropLastIndex
-        stats.update(translation, updatedStats)
-      }
-    } else {
-      translationsWithRepeats += translation
-      val updatedStats = curStats.addIndex(translationsWithRepeats.length - 1)
-      stats.update(translation, updatedStats)
+  private def updateInnerState(stats: Stats, translation: CommonTranslation): USTM[Unit] =
+    if (stats.weight <= 0 || stats.totalSuccesses >= numSuccessesToDrop)
+      perWordStats.delete(translation)
+    else
+      perWordStats.put(translation, stats)
+}
+
+object TestingBucket {
+  sealed trait UpdateStatus
+  case object Ok          extends UpdateStatus
+  case object NeedRebuild extends UpdateStatus
+
+  sealed trait NextWordError
+  case class Unrecoverable(msg: String)         extends NextWordError
+  case class RuntimeError(throwable: Throwable) extends NextWordError
+
+  case class UnexpectedWord(text: String)
+
+  case class Stats(weight: Int, totalSuccesses: Int) {
+
+    def update(guess: Guess): Stats = guess match {
+      case _: Success => Stats(weight = weight - 1, totalSuccesses = totalSuccesses + 1)
+      case _: Failure => Stats(weight = weight + 1, totalSuccesses = totalSuccesses)
     }
   }
 
+  case class NotEnoughWords(total: Int)
+
+  def make(translations: Seq[CommonTranslation],
+           numSuccessesToDrop: Int,
+           initialWeight: Int): STM[NotEnoughWords, TestingBucket] =
+    for {
+      _            <- STM.unless(translations.nonEmpty)(STM.fail(NotEnoughWords(translations.length)))
+      initialStats <- TMap.make(translations.map(_ -> Stats(weight = initialWeight, totalSuccesses = 0)): _*)
+    } yield new TestingBucket(initialStats, numSuccessesToDrop)
 }
