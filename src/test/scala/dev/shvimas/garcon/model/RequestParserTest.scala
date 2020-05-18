@@ -1,40 +1,37 @@
 package dev.shvimas.garcon.model
 
-import dev.shvimas.garcon.model.Helpers._
 import dev.shvimas.telegram.model.{Chat, Message}
 import dev.shvimas.translate.LanguageDirection
 import zio.test._
 import zio.test.Assertion._
 
-object RequestParserTest
-    extends DefaultRunnableSpec(
-        suite("RequestParser suite")(
-            suite("parseMessage suite")(
-                messageParsingTest("translate")(
-                    message = makeMessage("some text", None),
-                    expected = TranslationRequest("some text", chatId, messageId),
-                ),
-                messageParsingTest("delete by reply")(
-                    message = makeMessage("/delete", Some(makeMessage("to be deleted", None))),
-                    expected = DeleteByReply(makeMessage("to be deleted", None), chatId),
-                ),
-                messageParsingTest("delete by lang dir")(
-                    message = makeMessage("/delete test en-ru", None),
-                    expected = DeleteByText("test", LanguageDirection.EN_RU, chatId),
-                ),
-                messageParsingTest("bad delete by lang dir")(
-                    message = makeMessage("/delete test trash", None),
-                    expected = MalformedCommand("bad language direction: trash"),
-                ),
+object RequestParserTest extends DefaultRunnableSpec {
+  override def spec =
+    suite("RequestParser suite")(
+        suite("parseMessage suite")(
+            messageParsingTest("translate")(
+                message = makeMessage("some text", None),
+                expected = TranslationRequest("some text", chatId, messageId),
             ),
-        )
+            messageParsingTest("delete by reply")(
+                message = makeMessage("/delete", Some(makeMessage("to be deleted", None))),
+                expected = DeleteByReply(makeMessage("to be deleted", None), chatId),
+            ),
+            messageParsingTest("delete by lang dir")(
+                message = makeMessage("/delete test en-ru", None),
+                expected = DeleteByText("test", LanguageDirection.EN_RU, chatId),
+            ),
+            messageParsingTest("bad delete by lang dir")(
+                message = makeMessage("/delete test trash", None),
+                expected = MalformedCommand("bad language direction: trash"),
+            ),
+        ),
     )
 
-private object Helpers {
   val chatId    = Chat.Id(1337)
   val messageId = Message.Id(1)
 
-  private val defaultChat =
+  val defaultChat =
     Chat(
         id = chatId,
         `type` = Chat.Type("test"),
@@ -58,9 +55,9 @@ private object Helpers {
         replyMarkup = None,
     )
 
-  def messageParsingTest[L](label: L)(message: Message, expected: Request): ZSpec[Any, Throwable, L, Unit] =
+  def messageParsingTest(label: String)(message: Message, expected: Request): ZSpec[Any, Throwable] =
     testM(label) {
       val zRequest = RequestParser.parseMessage(message)
-      assertM(zRequest, equalTo(expected))
+      assertM(zRequest)(equalTo(expected))
     }
 }

@@ -1,7 +1,8 @@
 package dev.shvimas.garcon.model
 
-import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.database.model.UserData
+import dev.shvimas.garcon.Database
+import dev.shvimas.garcon.database.DatabaseOps
 import dev.shvimas.telegram.model.{Chat, Message}
 import zio.ZIO
 
@@ -26,7 +27,7 @@ object Text {
     }
 
     for {
-      maybeUserData <- ZIO.accessM[Database](_.getUserData(chatId))
+      maybeUserData <- DatabaseOps.getUserData(chatId)
       preparedText  <- ZIO.effect(decapitalize(maybeUserData))
     } yield preparedText
   }

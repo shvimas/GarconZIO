@@ -4,7 +4,6 @@ object Dependencies {
   val all: Seq[ModuleID] = Seq(
 //    "org.scala-lang" % "scala-reflect" % Versions.scala,
     "dev.zio" %% "zio" % Versions.zio,
-    "org.typelevel" %% "cats-core" % Versions.catsCore,
     "org.mongodb.scala" %% "mongo-scala-driver" % Versions.mongoDriver,
     "com.typesafe" % "config" % Versions.config,
 

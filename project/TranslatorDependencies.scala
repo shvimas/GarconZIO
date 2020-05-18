@@ -3,7 +3,6 @@ import sbt._
 object TranslatorDependencies {
   val all: Seq[ModuleID] = Seq(
     "dev.zio" %% "zio" % Versions.zio,
-    "org.typelevel" %% "cats-core" % Versions.catsCore,
     "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % Versions.jsonIter,
     "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % Versions.jsonIter % Provided,
     "com.softwaremill.sttp" %% "core" % Versions.sttpCore,

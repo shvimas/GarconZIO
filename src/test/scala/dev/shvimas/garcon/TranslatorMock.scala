@@ -1,15 +1,12 @@
 package dev.shvimas.garcon
 
+import dev.shvimas.garcon.TranslatorMock._
 import dev.shvimas.translate.{LanguageDirection, Translation, Translator}
 import dev.shvimas.translate.LanguageCode.LanguageCode
 
 import scala.util.{Failure, Success, Try}
 
-trait TranslatorMock extends Translator {
-  import TranslatorMock._
-
-  val translations: Translations
-
+class TranslatorMock(translations: Translations) extends Translator {
   override protected type LanguageCodeImpl = LanguageCode
 
   override protected def translateImpl(text: String, srcLang: LanguageCode, dstLang: LanguageCode): Try[Translation] = {
@@ -35,9 +32,9 @@ object TranslatorMock {
           "cat" -> "кошка",
       ),
       LanguageDirection.RU_EN -> Map(
-          "рука" -> "hand",
+          "рука"    -> "hand",
           "сделать" -> "совер. от делать",
-          "делать" -> "do",
+          "делать"  -> "do",
       ),
   )
 
@@ -45,22 +42,13 @@ object TranslatorMock {
       LanguageDirection.EN_RU -> Map(
           "cat" -> "кот",
       ),
-    LanguageDirection.RU_EN -> Map(
-        "ладонь" -> "palm",
-    ),
+      LanguageDirection.RU_EN -> Map(
+          "ладонь" -> "palm",
+      ),
   )
 
-  val abbyyTranslator = {
-    new TranslatorMock {
-      override val translations = abbyyTranslations
-    }
-  }
-
-  val yandexTranslator = {
-    new TranslatorMock {
-      override val translations = yandexTranslations
-    }
-  }
+  val abbyyTranslator  = new TranslatorMock(abbyyTranslations)
+  val yandexTranslator = new TranslatorMock(yandexTranslations)
 
   class MockTranslation(text: String, translation: String) extends Translation {
     override val originalText   = text

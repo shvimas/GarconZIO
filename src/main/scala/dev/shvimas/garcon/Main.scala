@@ -1,31 +1,50 @@
 package dev.shvimas.garcon
 
-import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.model._
 import dev.shvimas.telegram._
 import dev.shvimas.telegram.model._
 import dev.shvimas.translate.LanguageDirection
 import dev.shvimas.ZIOLogging
+import dev.shvimas.garcon.database.mongo.Mongo
+import dev.shvimas.garcon.database.DatabaseOps
 import org.mongodb.scala.result.UpdateResult
 import zio.{ZIO, _}
-import zio.clock.Clock
 import zio.duration._
 
 object Main extends App with ZIOLogging {
 
   import dev.shvimas.garcon.BotInteraction._
   import dev.shvimas.garcon.DatabaseInteraction._
-  import dev.shvimas.garcon.MainConfig._
   import dev.shvimas.garcon.TranslatorsInteraction._
 
-  type GarconEnv = Bot with Database with Translators
+  type GarconEnv = Has[Bot] with Database with Translators
 
-  override def run(args: List[String]): ZIO[Any, Nothing, Int] =
+  private def makeTelegramBot(config: TelegramBotConfig): ZIO[Has[TelegramBotConfig], Throwable, TelegramBot] =
+    for {
+      maybeProxy <- config.maybeProxy match {
+        case Some(proxyConfig) => proxyConfig.makeSocksProxy.asSome
+        case None              => zioLogger.warn("Telegram proxy settings not found!") *> ZIO.none
+      }
+      settings <- ZIO.effect(TelegramBotSettings(config.token, maybeProxy))
+      bot      <- ZIO.effect(new TelegramBot(settings))
+    } yield bot
+
+  val bot: Layer[Throwable, Has[Bot]] = MainConfig.telegramBotConfig >>> ZLayer.fromServiceM(makeTelegramBot)
+
+  val database: Layer[Throwable, Database] = MainConfig.mongoConfig >>> Mongo.live
+
+  val translators: Layer[Throwable, Translators] = MainConfig.translatorsConfig >>> Translators.live
+
+  val garconLayer: ULayer[GarconEnv] =
+    (bot ++ database ++ translators)
+      .tapError(zioLogger.error("Failed to construct common layer from config", _))
+      .orDie
+
+  override def run(args: List[String]): ZIO[ZEnv, Nothing, ExitCode] =
     main
-      .provide(environment)
-      .repeat(ZSchedule.fixed(200.milliseconds))
-      .provide(Clock.Live)
-      .fold((_: Nothing) => 1, (_: Int) => 0)
+      .provideLayer(garconLayer)
+      .repeat(Schedule.fixed(200.milliseconds))
+      .exitCode
 
   val main: ZIO[GarconEnv, Nothing, Unit] =
     for {
@@ -36,11 +55,11 @@ object Main extends App with ZIOLogging {
       }
     } yield ()
 
-  def getUpdates: ZIO[Bot with Database, Nothing, Option[GetUpdatesResult]] = {
-    val zGetUpdatesResult: ZIO[Bot with Database, Throwable, GetUpdatesResult] =
+  def getUpdates: ZIO[Has[Bot] with Database, Nothing, Option[GetUpdatesResult]] = {
+    val zGetUpdatesResult: ZIO[Has[Bot] with Database, Throwable, GetUpdatesResult] =
       for {
-        offset <- ZIO.accessM[Database](_.getOffset)
-        result <- ZIO.accessM[Bot](bot => ZIO.fromTry(bot.getUpdates(offset)))
+        offset <- DatabaseOps.getOffset
+        result <- BotOps.getUpdates(offset)
       } yield result
 
     zGetUpdatesResult
@@ -69,7 +88,7 @@ object Main extends App with ZIOLogging {
       .orElse(ZIO.succeed(Map.empty))
   }
 
-  def respondWith(results: AllResults): ZIO[Bot, Nothing, Unit] =
+  def respondWith(results: AllResults): ZIO[Has[Bot], Nothing, Unit] =
     for {
       sendResponsesResult <- sendResponses(results)
       _ <- ZIO.foreach(sendResponsesResult) {
@@ -91,7 +110,7 @@ object Main extends App with ZIOLogging {
       languageDirection    <- resolveLangDirection(request.chatId)
       languageDirection    <- ZIO.effect(languageDirection.maybeReverse(text.value))
       commonTranslation    <- commonTranslation(text, languageDirection)
-      maybePrevTranslation <- ZIO.accessM[Database](_.lookUpText(text, languageDirection, request.chatId))
+      maybePrevTranslation <- DatabaseOps.lookUpText(text, languageDirection, request.chatId)
       mergedTranslation = maybePrevTranslation.map(commonTranslation.mergeWith).getOrElse(commonTranslation)
     } yield
       TranslationResponse(
@@ -106,8 +125,8 @@ object Main extends App with ZIOLogging {
     def deleteText(text: Text.Checked,
                    languageDirection: LanguageDirection,
                    chatId: Chat.Id): ZIO[Database, Throwable, Either[String, String]] =
-      ZIO
-        .accessM[Database](_.deleteText(text, languageDirection, chatId))
+      DatabaseOps
+        .deleteText(text, languageDirection, chatId)
         .map { result =>
           val textValue = text.value
           if (result.wasAcknowledged()) {
@@ -123,10 +142,8 @@ object Main extends App with ZIOLogging {
           reply.text.map(Text.prepareText(_, chatId)) match {
             case Some(zText) =>
               for {
-                text <- zText
-                maybeLangDir <- ZIO.accessM[Database](
-                    _.findLanguageDirectionForMessage(chatId, text, reply.messageId)
-                )
+                text         <- zText
+                maybeLangDir <- DatabaseOps.findLanguageDirectionForMessage(chatId, text, reply.messageId)
                 result <- maybeLangDir match {
                   case Some(languageDirection) =>
                     deleteText(text, languageDirection, chatId)
@@ -152,8 +169,8 @@ object Main extends App with ZIOLogging {
                         chatId: Chat.Id,
                         languageDirection: LanguageDirection,
     ): ZIO[Database, Throwable, EditResponse] =
-      ZIO
-        .accessM[Database](_.editTranslation(text, edit, languageDirection, chatId))
+      DatabaseOps
+        .editTranslation(text, edit, languageDirection, chatId)
         .map {
           case Some(updateResult) =>
             if (updateResult.wasAcknowledged()) {
@@ -173,7 +190,7 @@ object Main extends App with ZIOLogging {
           case Some(text) =>
             for {
               text         <- Text.prepareText(text, chatId)
-              maybeLangDir <- ZIO.accessM[Database](_.findLanguageDirectionForMessage(chatId, text, reply.messageId))
+              maybeLangDir <- DatabaseOps.findLanguageDirectionForMessage(chatId, text, reply.messageId)
               response <- maybeLangDir match {
                 case Some(languageDirection) =>
                   editTranslation(text, edit, chatId, languageDirection)
@@ -191,25 +208,25 @@ object Main extends App with ZIOLogging {
     command match {
       case TestStartCommand(maybeLanguageDirection, chatId) =>
         val languageDirection = maybeLanguageDirection.getOrElse(Defaults.languageDirection)
-        ZIO
-          .accessM[Database](_.getRandomWord(chatId, languageDirection))
+        DatabaseOps
+          .getRandomWord(chatId, languageDirection)
           .map(TestStartResponse(_, languageDirection))
       case TestNextCommand(languageDirection, chatId) =>
-        ZIO
-          .accessM[Database](_.getRandomWord(chatId, languageDirection))
+        DatabaseOps
+          .getRandomWord(chatId, languageDirection)
           .map(TestNextResponse(_, languageDirection))
       case TestShowCommand(text, languageDirection, chatId) =>
         for {
           preparedText     <- Text.prepareText(text, chatId)
-          maybeTranslation <- ZIO.accessM[Database](_.lookUpText(preparedText, languageDirection, chatId))
+          maybeTranslation <- DatabaseOps.lookUpText(preparedText, languageDirection, chatId)
         } yield TestShowResponse(maybeTranslation, languageDirection)
     }
 
   def processChooseRequest(command: ChooseCommand): ZIO[Database, Throwable, ChooseResponse] =
     command match {
       case ChooseCommand(languageDirection, chatId) =>
-        ZIO
-          .accessM[Database](_.setLanguageDirection(chatId, languageDirection))
+        DatabaseOps
+          .setLanguageDirection(chatId, languageDirection)
           .map { result: UpdateResult =>
             if (result.wasAcknowledged()) {
               SuccessfulChooseResponse(languageDirection)

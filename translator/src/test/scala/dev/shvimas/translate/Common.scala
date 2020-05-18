@@ -21,6 +21,6 @@ object Common {
     val translation: Task[Translation] =
       translator.translate(text, languageDirection)
 
-    assertM(translation, checkTranslatedText && checkText)
+    assertM(translation)(checkTranslatedText && checkText)
   }
 }

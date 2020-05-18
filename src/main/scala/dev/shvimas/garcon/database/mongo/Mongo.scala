@@ -2,7 +2,7 @@ package dev.shvimas.garcon.database.mongo
 
 import com.mongodb.ConnectionString
 import com.typesafe.scalalogging.StrictLogging
-import dev.shvimas.garcon.MainConfig.config
+import dev.shvimas.garcon.{Database, MongoConfig}
 import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.database.model._
 import dev.shvimas.garcon.database.mongo.codec.LanguageCodeCodecProvider
@@ -22,15 +22,48 @@ import org.mongodb.scala.model.Aggregates._
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Updates.{combine, set}
 import org.mongodb.scala.result.{DeleteResult, UpdateResult}
-import zio.{Task, ZIO}
+import zio._
 
 import scala.concurrent.Future
 
 object Mongo {
 
-  trait Instance extends Database with StrictLogging {
+  val live: ZLayer[Has[MongoConfig], Throwable, Database] = ZLayer.fromServiceM { config: MongoConfig =>
+    ZIO.effect {
+      val connectionString = {
+        val username = config.username
+        val password = config.password
+        val host     = config.host
+        val port     = config.port
+        new ConnectionString(s"mongodb://$username:$password@$host:$port")
+      }
 
-    import Config._
+      val caseClassCodecs: CodecRegistry =
+        fromProviders(
+            classOf[MongoGlobals],
+            classOf[MongoUserData],
+            classOf[MongoCommonTranslation],
+            classOf[MongoLanguageDirection],
+            LanguageCodeCodecProvider
+        )
+
+      val codecRegistry: CodecRegistry =
+        fromRegistries(DEFAULT_CODEC_REGISTRY, caseClassCodecs)
+
+      val clientSettings: MongoClientSettings =
+        MongoClientSettings
+          .builder()
+          .applyConnectionString(connectionString)
+          .codecRegistry(codecRegistry)
+          .build()
+
+      new Instance(MongoClient(clientSettings))
+    }
+  }
+
+  private class Instance(client: MongoClient) extends Database.Service with StrictLogging {
+
+    import Constants._
     import Helpers._
 
     protected val garconDb: MongoDatabase = client.getDatabase(DbName.garcon)
@@ -40,19 +73,6 @@ object Mongo {
 
     protected val usersDataColl: MongoCollection[MongoUserData] =
       garconDb.getCollection(CollName.usersData)
-
-    protected def fromFuture[A](future: => Future[A]): Task[A] =
-      ZIO.fromFuture(implicit ec => future)
-
-    implicit protected class RichSingleObservable[T](inner: SingleObservable[T]) {
-      def toTask: Task[T]               = fromFuture(inner.toFuture())
-      def toOptionTask: Task[Option[T]] = fromFuture(inner.toFutureOption())
-    }
-
-    implicit protected class RichObservable[T](inner: Observable[T]) {
-      def toSeqTask: Task[Seq[T]]       = fromFuture(inner.toFuture())
-      def toOptionTask: Task[Option[T]] = fromFuture(inner.headOption())
-    }
 
     def getGlobals: Task[Option[MongoGlobals]] =
       globalsColl
@@ -206,6 +226,19 @@ object Mongo {
 
   private object Helpers {
 
+    def fromFuture[A](future: => Future[A]): Task[A] =
+      ZIO.fromFuture(implicit ec => future)
+
+    implicit class RichSingleObservable[T](inner: SingleObservable[T]) {
+      def toTask: Task[T]               = fromFuture(inner.toFuture())
+      def toOptionTask: Task[Option[T]] = fromFuture(inner.toFutureOption())
+    }
+
+    implicit class RichObservable[T](inner: Observable[T]) {
+//      def toSeqTask: Task[Seq[T]]       = fromFuture(inner.toFuture())
+      def toOptionTask: Task[Option[T]] = fromFuture(inner.headOption())
+    }
+
     def convertUserData(maybeUserData: Option[MongoUserData]): Option[UserData] =
       maybeUserData.map { mongoUserData: MongoUserData =>
         UserData(
@@ -220,38 +253,9 @@ object Mongo {
           source = mongoLanguageDirection.source,
           target = mongoLanguageDirection.target,
       )
-
   }
 
-  private object Config {
-    val username: String = config.getString("mongo.username")
-    val password: String = config.getString("mongo.password")
-    val host: String     = config.getString("mongo.host")
-    val port: Int        = config.getInt("mongo.port")
-
-    val connectionString = new ConnectionString(s"mongodb://$username:$password@$host:$port")
-
-    val caseClassCodecs: CodecRegistry =
-      fromProviders(
-          classOf[MongoGlobals],
-          classOf[MongoUserData],
-          classOf[MongoCommonTranslation],
-          classOf[MongoLanguageDirection],
-          LanguageCodeCodecProvider
-      )
-
-    val codecRegistry: CodecRegistry =
-      fromRegistries(DEFAULT_CODEC_REGISTRY, caseClassCodecs)
-
-    val clientSettings: MongoClientSettings =
-      MongoClientSettings
-        .builder()
-        .applyConnectionString(connectionString)
-        .codecRegistry(codecRegistry)
-        .build()
-
-    val client = MongoClient(clientSettings)
-
+  private object Constants {
     val emptyBson = BsonDocument()
 
     val upsert: UpdateOptions   = new UpdateOptions().upsert(true)
@@ -265,7 +269,5 @@ object Mongo {
     object DbName {
       val garcon = "garcon"
     }
-
   }
-
 }

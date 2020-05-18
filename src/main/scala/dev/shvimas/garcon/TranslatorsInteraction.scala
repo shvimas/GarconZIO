@@ -15,7 +15,7 @@ object TranslatorsInteraction extends ZIOLogging {
                         languageDirection: LanguageDirection,
   ): ZIO[Translators, Nothing, CommonTranslation] =
     for {
-      namedTranslators <- ZIO.access[Translators](_.supportedTranslators)
+      namedTranslators <- TranslatorsOps.supportedTranslators
       allTranslations  <- ZIO.collectAllSuccessesPar(translateWith(namedTranslators, text, languageDirection))
     } yield CommonTranslation(text.value, allTranslations.toMap, None)
 

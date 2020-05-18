@@ -8,8 +8,7 @@ import org.mongodb.scala.result.{DeleteResult, UpdateResult}
 import zio.Task
 
 object TestDatabase {
-
-  trait Stub extends Database {
+  class Stub extends Database.Service {
     override def updateOffset(offset: Bot.Offset): Task[UpdateResult] = throw new NotImplementedError()
 
     override def getOffset: Task[Bot.Offset] = throw new NotImplementedError()
