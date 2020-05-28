@@ -6,9 +6,10 @@ import dev.shvimas.garcon.model._
 import dev.shvimas.telegram.Bot
 import dev.shvimas.telegram.model._
 import dev.shvimas.translate.LanguageDirection
+import dev.shvimas.ZIOLogging
 import zio.{Has, ZIO}
 
-object BotInteraction {
+object BotInteraction extends ZIOLogging {
 
   case class Reply(text: String, markup: Option[InlineKeyboardMarkup])
 
@@ -29,6 +30,7 @@ object BotInteraction {
           sendMessageResult <- BotOps.sendMessage(chatId, text, reply.markup, disableNotification = true)
         } yield sendMessageResult
       }
+      .logOnError(s"Failed to send response(s): $resultsPerUser")
       .either
       .map(chatId -> _)
 

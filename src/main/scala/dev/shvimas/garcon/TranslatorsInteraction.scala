@@ -28,9 +28,9 @@ object TranslatorsInteraction extends ZIOLogging {
         for {
           translation <- translator
             .translate(text.value, languageDirection)
-            .tapError(zioLogger.error(s"While translating $text ($languageDirection)", _))
+            .logOnError(s"While translating $text ($languageDirection)")
           refined <- refineTranslation(translation, languageDirection, translator)
-            .tapError(zioLogger.error(s"While refining ABBYY translation ($translation)", _))
+            .logOnError(s"While refining ABBYY translation ($translation)")
             .orElse(ZIO.succeed(translation))
         } yield name -> refined.translatedText
     }

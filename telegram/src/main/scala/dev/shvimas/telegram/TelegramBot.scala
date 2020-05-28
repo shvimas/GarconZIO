@@ -53,7 +53,7 @@ class TelegramBot(settings: TelegramBotSettings) extends Bot with StrictLogging 
         "disable_notification" -> disableNotification.toString
     )
     replyMarkup.foreach(markup => params += "reply_markup" -> markup.toJson)
-    logger.debug("Sending message")
+    logger.debug(s"Sending message with \n${params.mkString("\n")}")
     val triedSendMessageResult = callApi[SendMessageResult]("sendMessage", params)
     logger.debug("Done.")
     triedSendMessageResult

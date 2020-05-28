@@ -37,7 +37,7 @@ object Main extends App with ZIOLogging {
 
   val garconLayer: ULayer[GarconEnv] =
     (bot ++ database ++ translators)
-      .tapError(zioLogger.error("Failed to construct common layer from config", _))
+      .logOnError("Failed to construct common layer from config")
       .orDie
 
   override def run(args: List[String]): ZIO[ZEnv, Nothing, ExitCode] =
@@ -63,7 +63,7 @@ object Main extends App with ZIOLogging {
       } yield result
 
     zGetUpdatesResult
-      .tapError(zioLogger.error("While getting updates", _))
+      .logOnError("While getting updates")
       .option
   }
 
@@ -84,7 +84,7 @@ object Main extends App with ZIOLogging {
         }
       } yield processed.flatten.toMap
     zGroupedUpdates
-      .tapError(zioLogger.error("While grouping updates", _))
+      .logOnError("While grouping updates")
       .orElse(ZIO.succeed(Map.empty))
   }
 

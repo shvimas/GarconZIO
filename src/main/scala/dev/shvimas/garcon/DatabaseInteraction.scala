@@ -1,24 +1,23 @@
 package dev.shvimas.garcon
 
-import com.typesafe.scalalogging.StrictLogging
 import dev.shvimas.garcon.database.DatabaseOps
 import dev.shvimas.garcon.Main._
 import dev.shvimas.garcon.database.model.UserData
 import dev.shvimas.garcon.model.{DecapitalizeCommand, _}
-import dev.shvimas.garcon.CommonUtils.logErrorWithContext
 import dev.shvimas.telegram.model.{Chat, GetUpdatesResult, Update}
 import dev.shvimas.telegram.Bot
 import dev.shvimas.translate.LanguageDirection
+import dev.shvimas.ZIOLogging
 import org.mongodb.scala.result.UpdateResult
 import zio.{Task, ZIO}
 
-object DatabaseInteraction extends StrictLogging {
+object DatabaseInteraction extends ZIOLogging {
 
   def updateOffset(updatesResult: GetUpdatesResult): ZIO[Database, Nothing, Unit] =
     (for {
-      offset <- newOffset(updatesResult).mapError(logErrorWithContext(s"While calculating new offset", _))
-      _      <- doOffsetUpdate(offset).mapError(logErrorWithContext(s"While updating offset $offset", _))
-    } yield ()).fold(_ => (), _ => ())
+      offset <- newOffset(updatesResult).logOnError("While calculating new offset")
+      _      <- doOffsetUpdate(offset).logOnError(s"While updating offset $offset")
+    } yield ()).orElseSucceed(())
 
   private def doOffsetUpdate(offset: Bot.Offset): ZIO[Database, Throwable, Unit] =
     ZIO.when(offset > 0) {
@@ -79,7 +78,7 @@ object DatabaseInteraction extends StrictLogging {
       }
     DatabaseOps
       .getUserData(chatId)
-      .mapError("While getting user data" -> _)
+      .logOnError("While getting user data")
       .flatMap { maybeUserData: Option[UserData] =>
         val userData: UserData =
           maybeUserData match {
@@ -88,9 +87,10 @@ object DatabaseInteraction extends StrictLogging {
           }
         DatabaseOps
           .setUserData(userData)
-          .mapError("While updating decap state:" -> _)
+          .logOnError("While updating decap state")
+          .unit
       }
-      .fold(logErrorWithContext, _ => ())
+      .orElseSucceed(())
   }
 
   private def saveTranslationResult(chatId: Chat.Id,
@@ -103,11 +103,11 @@ object DatabaseInteraction extends StrictLogging {
           .addCommonTranslation(commonTranslation, chatId, languageDirection, messageId)
           .flatMap { updateResult: UpdateResult =>
             ZIO.when(!updateResult.wasAcknowledged) {
-              ZIO.effect(logger.error(s"Tried to save $commonTranslation for $chatId but it was not acknowledged"))
+              zioLogger.error(s"Tried to save $commonTranslation for $chatId but it was not acknowledged")
             }
           }
       }
-      .mapError(s"While saving $commonTranslation for $chatId:" -> _)
-      .fold(logErrorWithContext, _ => ())
+      .logOnError(s"While saving $commonTranslation for $chatId")
+      .orElseSucceed(())
   }
 }

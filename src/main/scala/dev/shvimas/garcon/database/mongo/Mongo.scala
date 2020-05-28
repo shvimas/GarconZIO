@@ -1,7 +1,6 @@
 package dev.shvimas.garcon.database.mongo
 
 import com.mongodb.ConnectionString
-import com.typesafe.scalalogging.StrictLogging
 import dev.shvimas.garcon.{Database, MongoConfig}
 import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.database.model._
@@ -61,7 +60,7 @@ object Mongo {
     }
   }
 
-  private class Instance(client: MongoClient) extends Database.Service with StrictLogging {
+  private class Instance(client: MongoClient) extends Database.Service {
 
     import Constants._
     import Helpers._

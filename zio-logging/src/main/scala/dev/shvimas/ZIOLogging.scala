@@ -2,14 +2,22 @@ package dev.shvimas
 
 import com.typesafe.scalalogging.Logger
 import org.slf4j.LoggerFactory
-import zio.{UIO, ZIO}
+import zio.{UIO, ZIO, ZLayer}
 
 trait ZIOLogging {
-  protected val zioLogger = new ZIOLogger
+  protected val zioLogger = new ZIOLogger(getClass)
+
+  implicit class ZioLoggingOps[R, E <: Throwable, A](zio: ZIO[R, E, A]) {
+    def logOnError(message: String): ZIO[R, E, A] = zio.tapError(zioLogger.error(message, _))
+  }
+
+  implicit class ZLayerLoggingOps[I, E <: Throwable, O](zLayer: ZLayer[I, E, O]) {
+    def logOnError(message: String): ZLayer[I, E, O] = zLayer.tapError(zioLogger.error(message, _))
+  }
 }
 
-class ZIOLogger {
-  private val logger = Logger(LoggerFactory.getLogger(getClass.getName))
+class ZIOLogger(clazz: Class[_]) {
+  private val logger = Logger(LoggerFactory.getLogger(clazz))
 
   private def wrap(action: => Unit): UIO[Unit] = ZIO.effect(action).fold(_ => (), _ => ())
 
