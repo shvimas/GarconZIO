@@ -9,7 +9,7 @@ services:
       - "27019:27017"
     volumes:
       - mongo-volume:/data/db
-    restart: on-failure
+    restart: on-failure:5
 
   main:
     image: garconzio/garconzio
@@ -19,6 +19,10 @@ services:
     container_name: garcon-main
     ports:
       - "5005:5005"
+    volumes:
+      - main-logs-volume:/logs
+    restart: on-failure:5
 
 volumes:
   mongo-volume:
+  main-logs-volume:
