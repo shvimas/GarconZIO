@@ -5,8 +5,8 @@ import dev.shvimas.telegram._
 import dev.shvimas.telegram.model._
 import dev.shvimas.translate.LanguageDirection
 import dev.shvimas.ZIOLogging
+import dev.shvimas.garcon.database.{Database, DatabaseOps}
 import dev.shvimas.garcon.database.mongo.Mongo
-import dev.shvimas.garcon.database.DatabaseOps
 import org.mongodb.scala.result.UpdateResult
 import zio.{ZIO, _}
 import zio.duration._
@@ -17,7 +17,7 @@ object Main extends App with ZIOLogging {
   import dev.shvimas.garcon.DatabaseInteraction._
   import dev.shvimas.garcon.TranslatorsInteraction._
 
-  type GarconEnv = Has[Bot] with Database with Translators
+  type GarconEnv = Has[Bot] with HasDatabase with Translators
 
   private def makeTelegramBot(config: TelegramBotConfig): ZIO[Has[TelegramBotConfig], Throwable, TelegramBot] =
     for {
@@ -31,7 +31,7 @@ object Main extends App with ZIOLogging {
 
   val bot: Layer[Throwable, Has[Bot]] = MainConfig.telegramBotConfig >>> ZLayer.fromServiceM(makeTelegramBot)
 
-  val database: Layer[Throwable, Database] = MainConfig.mongoConfig >>> Mongo.live
+  val database: Layer[Throwable, HasDatabase] = MainConfig.mongoConfig >>> Mongo.live
 
   val translators: Layer[Throwable, Translators] = MainConfig.translatorsConfig >>> Translators.live
 
@@ -55,8 +55,8 @@ object Main extends App with ZIOLogging {
       }
     } yield ()
 
-  def getUpdates: ZIO[Has[Bot] with Database, Nothing, Option[GetUpdatesResult]] = {
-    val zGetUpdatesResult: ZIO[Has[Bot] with Database, Throwable, GetUpdatesResult] =
+  def getUpdates: ZIO[Has[Bot] with HasDatabase, Nothing, Option[GetUpdatesResult]] = {
+    val zGetUpdatesResult: ZIO[Has[Bot] with HasDatabase, Throwable, GetUpdatesResult] =
       for {
         offset <- DatabaseOps.getOffset
         result <- BotOps.getUpdates(offset)
@@ -104,7 +104,7 @@ object Main extends App with ZIOLogging {
       }
     } yield ()
 
-  def processTranslationRequest(request: TranslationRequest): RIO[Database with Translators, TranslationResponse] =
+  def processTranslationRequest(request: TranslationRequest): RIO[HasDatabase with Translators, TranslationResponse] =
     for {
       text                 <- Text.prepareText(request.text, request.chatId)
       languageDirection    <- resolveLangDirection(request.chatId)
@@ -121,11 +121,11 @@ object Main extends App with ZIOLogging {
           )
       )
 
-  def processDeleteCommand(command: DeleteCommand): ZIO[Database, Throwable, DeletionResponse] = {
+  def processDeleteCommand(command: DeleteCommand): ZIO[HasDatabase, Throwable, DeletionResponse] = {
     def deleteText(text: Text.Checked,
                    languageDirection: LanguageDirection,
-                   chatId: Chat.Id): ZIO[Database, Throwable, Either[String, String]] =
-      DatabaseOps
+                   chatId: Chat.Id): ZIO[HasDatabase, Throwable, Either[String, String]] =
+      Database
         .deleteText(text, languageDirection, chatId)
         .map { result =>
           val textValue = text.value
@@ -136,7 +136,7 @@ object Main extends App with ZIOLogging {
           }
         }
 
-    val result: ZIO[Database, Throwable, Either[String, String]] =
+    val result: ZIO[HasDatabase, Throwable, Either[String, String]] =
       command match {
         case DeleteByReply(reply, chatId) =>
           reply.text.map(Text.prepareText(_, chatId)) match {
@@ -163,12 +163,12 @@ object Main extends App with ZIOLogging {
     result.map(DeletionResponse)
   }
 
-  def processEditCommand(command: EditCommand): ZIO[Database, Throwable, EditResponse] = {
+  def processEditCommand(command: EditCommand): ZIO[HasDatabase, Throwable, EditResponse] = {
     def editTranslation(text: Text.Checked,
                         edit: String,
                         chatId: Chat.Id,
                         languageDirection: LanguageDirection,
-    ): ZIO[Database, Throwable, EditResponse] =
+    ): ZIO[HasDatabase, Throwable, EditResponse] =
       DatabaseOps
         .editTranslation(text, edit, languageDirection, chatId)
         .map {
@@ -204,11 +204,11 @@ object Main extends App with ZIOLogging {
     }
   }
 
-  def processTestCommand(command: TestCommand): ZIO[Database, Throwable, TestResponse] =
+  def processTestCommand(command: TestCommand): ZIO[HasDatabase, Throwable, TestResponse] =
     command match {
       case TestStartCommand(maybeLanguageDirection, chatId) =>
         val languageDirection = maybeLanguageDirection.getOrElse(Defaults.languageDirection)
-        DatabaseOps
+        Database
           .getRandomWord(chatId, languageDirection)
           .map(TestStartResponse(_, languageDirection))
       case TestNextCommand(languageDirection, chatId) =>
@@ -222,7 +222,7 @@ object Main extends App with ZIOLogging {
         } yield TestShowResponse(maybeTranslation, languageDirection)
     }
 
-  def processChooseRequest(command: ChooseCommand): ZIO[Database, Throwable, ChooseResponse] =
+  def processChooseRequest(command: ChooseCommand): ZIO[HasDatabase, Throwable, ChooseResponse] =
     command match {
       case ChooseCommand(languageDirection, chatId) =>
         DatabaseOps
@@ -236,7 +236,7 @@ object Main extends App with ZIOLogging {
           }
     }
 
-  def processUpdate(update: Update): ZIO[Database with Translators, Throwable, Response] =
+  def processUpdate(update: Update): ZIO[HasDatabase with Translators, Throwable, Response] =
     RequestParser.parseUpdate(update).flatMap {
       case request: TranslationRequest  => processTranslationRequest(request)
       case command: DeleteCommand       => processDeleteCommand(command)
@@ -259,7 +259,7 @@ object Main extends App with ZIOLogging {
 
   def processGroupedUpdates(
       updateGroups: Map[Chat.Id, List[Update]],
-  ): ZIO[Database with Translators, Nothing, AllResults] =
+  ): ZIO[HasDatabase with Translators, Nothing, AllResults] =
     // important that error type is Nothing in inner collect
     // otherwise collectAllPar could interrupt other users' processing
     ZIO.foreachPar(updateGroups.toList) {

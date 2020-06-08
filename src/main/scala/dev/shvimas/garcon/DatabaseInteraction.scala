@@ -13,13 +13,13 @@ import zio.{Task, ZIO}
 
 object DatabaseInteraction extends ZIOLogging {
 
-  def updateOffset(updatesResult: GetUpdatesResult): ZIO[Database, Nothing, Unit] =
+  def updateOffset(updatesResult: GetUpdatesResult): ZIO[HasDatabase, Nothing, Unit] =
     (for {
       offset <- newOffset(updatesResult).logOnError("While calculating new offset")
       _      <- doOffsetUpdate(offset).logOnError(s"While updating offset $offset")
     } yield ()).orElseSucceed(())
 
-  private def doOffsetUpdate(offset: Bot.Offset): ZIO[Database, Throwable, Unit] =
+  private def doOffsetUpdate(offset: Bot.Offset): ZIO[HasDatabase, Throwable, Unit] =
     ZIO.when(offset > 0) {
       for {
         result <- DatabaseOps.updateOffset(offset)
@@ -36,7 +36,7 @@ object DatabaseInteraction extends ZIOLogging {
       Bot.Offset(maybeMaxUpdateId.map(id => id.value + 1).getOrElse(0))
     }
 
-  def resolveLangDirection(chatId: Chat.Id): ZIO[Database, Throwable, LanguageDirection] =
+  def resolveLangDirection(chatId: Chat.Id): ZIO[HasDatabase, Throwable, LanguageDirection] =
     DatabaseOps.getUserData(chatId).flatMap {
       case Some(UserData(_, Some(languageDirection), _)) =>
         ZIO.succeed(languageDirection)
@@ -46,8 +46,8 @@ object DatabaseInteraction extends ZIOLogging {
         DatabaseOps.setUserData(Defaults.userData(chatId)).as(Defaults.languageDirection)
     }
 
-  def saveResults(allResults: AllResults): ZIO[Database, Nothing, Unit] = {
-    val saveEffects: List[ZIO[Database, Nothing, Unit]] = for {
+  def saveResults(allResults: AllResults): ZIO[HasDatabase, Nothing, Unit] = {
+    val saveEffects: List[ZIO[HasDatabase, Nothing, Unit]] = for {
       (chatId, perUserResults) <- allResults
       result                   <- perUserResults
     } yield
@@ -70,7 +70,7 @@ object DatabaseInteraction extends ZIOLogging {
 
   private def saveDecapitalizationState(chatId: Chat.Id,
                                         state: DecapitalizeCommand.State.Value,
-  ): ZIO[Database, Nothing, Unit] = {
+  ): ZIO[HasDatabase, Nothing, Unit] = {
     val decapValue: Boolean =
       state match {
         case DecapitalizeCommand.State.ON  => true
@@ -95,7 +95,7 @@ object DatabaseInteraction extends ZIOLogging {
 
   private def saveTranslationResult(chatId: Chat.Id,
                                     translationWithInfo: TranslationWithInfo,
-  ): ZIO[Database, Nothing, Unit] = {
+  ): ZIO[HasDatabase, Nothing, Unit] = {
     val TranslationWithInfo(commonTranslation, languageDirection, messageId) = translationWithInfo
     ZIO
       .when(commonTranslation.nonEmpty) {

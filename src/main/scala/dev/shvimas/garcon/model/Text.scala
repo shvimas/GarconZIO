@@ -1,7 +1,7 @@
 package dev.shvimas.garcon.model
 
 import dev.shvimas.garcon.database.model.UserData
-import dev.shvimas.garcon.Database
+import dev.shvimas.garcon.HasDatabase
 import dev.shvimas.garcon.database.DatabaseOps
 import dev.shvimas.telegram.model.{Chat, Message}
 import zio.ZIO
@@ -15,7 +15,7 @@ object Text {
   implicit def fromMessageText(mt: Message.Text): Unchecked = Unchecked(mt.value)
   implicit def fromString(s: String): Unchecked             = Unchecked(s)
 
-  def prepareText(text: Unchecked, chatId: Chat.Id): ZIO[Database, Throwable, Checked] = {
+  def prepareText(text: Unchecked, chatId: Chat.Id): ZIO[HasDatabase, Throwable, Checked] = {
     def decapitalize(maybeUserData: Option[UserData]): Checked = {
       val maybeTransformed: Option[String] =
         for {

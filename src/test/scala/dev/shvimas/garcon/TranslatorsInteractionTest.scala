@@ -23,7 +23,7 @@ object TranslatorsInteractionTest extends DefaultRunnableSpec {
 
   private val chatId = Chat.Id(1)
 
-  private val database: Database = Has(new TestDatabase.Stub {
+  private val database: HasDatabase = Has(new TestDatabase.Stub {
     override def getUserData(chatId: Chat.Id) =
       ZIO.some(UserData(chatId = chatId, languageDirection = None, decapitalization = None))
   })

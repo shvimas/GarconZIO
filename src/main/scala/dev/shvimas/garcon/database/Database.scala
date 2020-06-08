@@ -7,7 +7,9 @@ import dev.shvimas.telegram.Bot
 import dev.shvimas.translate.LanguageDirection
 import org.mongodb.scala.result.{DeleteResult, UpdateResult}
 import zio.Task
+import zio.macros.accessible
 
+@accessible
 object Database {
 
   trait Service {

@@ -1,4 +1,6 @@
 object Versions {
+  val scala = "2.12.8"
+
   val zio = "1.0.0"
 
   val jsonIter = "2.1.15"

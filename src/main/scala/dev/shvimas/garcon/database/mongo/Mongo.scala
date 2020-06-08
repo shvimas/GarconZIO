@@ -1,7 +1,7 @@
 package dev.shvimas.garcon.database.mongo
 
 import com.mongodb.ConnectionString
-import dev.shvimas.garcon.{Database, MongoConfig}
+import dev.shvimas.garcon.{HasDatabase, MongoConfig}
 import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.database.model._
 import dev.shvimas.garcon.database.mongo.codec.LanguageCodeCodecProvider
@@ -27,7 +27,7 @@ import scala.concurrent.Future
 
 object Mongo {
 
-  val live: ZLayer[Has[MongoConfig], Throwable, Database] = ZLayer.fromServiceM { config: MongoConfig =>
+  val live: ZLayer[Has[MongoConfig], Throwable, HasDatabase] = ZLayer.fromServiceM { config: MongoConfig =>
     ZIO.effect {
       val connectionString = {
         val username = config.username

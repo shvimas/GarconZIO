@@ -1,6 +1,8 @@
 name := "GarconZIO"
 version := "0.1-SNAPSHOT"
-scalaVersion := "2.12.8"
+scalaVersion := Versions.scala
+
+addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 
 lazy val zioTestFramework = new TestFramework("zio.test.sbt.ZTestFramework")
 
