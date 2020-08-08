@@ -1,5 +1,5 @@
 object Versions {
-  val zio = "1.0.0-RC20"
+  val zio = "1.0.0"
 
   val jsonIter = "2.1.15"
   val sttpCore = "1.5.11"

@@ -23,42 +23,36 @@ case class TranslatorsConfig(abbyyApiKey: String, yandexApiKey: String)
 object MainConfig {
   private val config: Config = ConfigFactory.parseResourcesAnySyntax("private/secrets.conf")
 
-  val telegramBotConfig: Layer[Throwable, Has[TelegramBotConfig]] = ZLayer.fromEffect(
-      ZIO.effect {
-        val botToken = config.getString("bot.token")
+  val telegramBotConfig: Layer[Throwable, Has[TelegramBotConfig]] = ZIO.effect {
+    val botToken = config.getString("bot.token")
 
-        val telegramProxy = if (config.hasPath("proxy")) {
-          Some(
-              TelegramBotConfig.Proxy(
-                  username = config.getString("proxy.username"),
-                  password = config.getString("proxy.password"),
-                  host = config.getString("proxy.host"),
-                  port = config.getInt("proxy.port"),
-              )
-          )
-        } else None
-
-        TelegramBotConfig(botToken, telegramProxy)
-      }
-  )
-
-  val mongoConfig: Layer[Throwable, Has[MongoConfig]] = ZLayer.fromEffect(
-      ZIO.effect {
-        MongoConfig(
-            username = config.getString("mongo.username"),
-            password = config.getString("mongo.password"),
-            host = config.getString("mongo.host"),
-            port = config.getInt("mongo.port"),
+    val telegramProxy = if (config.hasPath("proxy")) {
+      Some(
+        TelegramBotConfig.Proxy(
+          username = config.getString("proxy.username"),
+          password = config.getString("proxy.password"),
+          host = config.getString("proxy.host"),
+          port = config.getInt("proxy.port"),
         )
-      }
-  )
+      )
+    } else None
 
-  val translatorsConfig: Layer[Throwable, Has[TranslatorsConfig]] = ZLayer.fromEffect(
-      ZIO.effect {
-        TranslatorsConfig(
-            abbyyApiKey = config.getString("abbyy.apiKey"),
-            yandexApiKey = config.getString("yandex.apiKey"),
-        )
-      }
-  )
+    TelegramBotConfig(botToken, telegramProxy)
+  }.toLayer
+
+  val mongoConfig: Layer[Throwable, Has[MongoConfig]] = ZIO.effect {
+    MongoConfig(
+      username = config.getString("mongo.username"),
+      password = config.getString("mongo.password"),
+      host = config.getString("mongo.host"),
+      port = config.getInt("mongo.port"),
+    )
+  }.toLayer
+
+  val translatorsConfig: Layer[Throwable, Has[TranslatorsConfig]] = ZIO.effect {
+    TranslatorsConfig(
+      abbyyApiKey = config.getString("abbyy.apiKey"),
+      yandexApiKey = config.getString("yandex.apiKey"),
+    )
+  }.toLayer
 }

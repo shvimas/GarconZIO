@@ -78,7 +78,7 @@ object Main extends App with ZIOLogging {
     val zGroupedUpdates: Task[Map[Chat.Id, List[Update]]] =
       for {
         grouped <- ZIO.effect(getUpdatesResult.result.groupBy(_.chatId))
-        processed <- ZIO.foreach(grouped) {
+        processed <- ZIO.foreach(grouped.toList) {
           case (Some(chatId), updates) => ZIO.some(chatId -> updates)
           case (None, updates)         => processOrphanUpdates(updates).as(None)
         }
@@ -148,11 +148,11 @@ object Main extends App with ZIOLogging {
                   case Some(languageDirection) =>
                     deleteText(text, languageDirection, chatId)
                   case None =>
-                    ZIO.succeed(Left(s"Couldn't delete ${text.value} (failed to find language direction)"))
+                    ZIO.left(s"Couldn't delete ${text.value} (failed to find language direction)")
                 }
               } yield result
             case None =>
-              ZIO.succeed(Left("Couldn't delete (text is empty)"))
+              ZIO.left("Couldn't delete (text is empty)")
           }
         case DeleteByText(text, languageDirection, chatId) =>
           for {
@@ -258,11 +258,11 @@ object Main extends App with ZIOLogging {
   type AllResults = List[(Chat.Id, List[Either[ErrorWithInfo, Response]])]
 
   def processGroupedUpdates(
-      updateGroups: Map[Chat.Id, Seq[Update]],
+      updateGroups: Map[Chat.Id, List[Update]],
   ): ZIO[Database with Translators, Nothing, AllResults] =
     // important that error type is Nothing in inner collect
     // otherwise collectAllPar could interrupt other users' processing
-    ZIO.foreachPar(updateGroups) {
+    ZIO.foreachPar(updateGroups.toList) {
       case (chatId, updates) =>
         ZIO
           .foreach(updates) { update =>
