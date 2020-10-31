@@ -36,7 +36,7 @@ object TranslatorsInteractionTest extends DefaultRunnableSpec {
           val expected = {
             val translations = Map(
                 CommonTranslationFields.abbyy  -> "кот, кошка",
-                CommonTranslationFields.yandex -> "кошка",
+//                CommonTranslationFields.yandex -> "кошка",
             )
             CommonTranslation(text, translations, None)
           }

@@ -8,8 +8,8 @@ object TranslatorsOps {
   val abbyyTranslator: URIO[Translators, Translator] =
     ZIO.access[Translators](_.get.abbyyTranslator)
 
-  val yandexTranslator: URIO[Translators, Translator] =
-    ZIO.access[Translators](_.get.yandexTranslator)
+//  val yandexTranslator: URIO[Translators, Translator] =
+//    ZIO.access[Translators](_.get.yandexTranslator)
 
   val supportedTranslators: URIO[Translators, Map[String, Translator]] =
     ZIO.access[Translators](_.get.supportedTranslators)

@@ -10,10 +10,10 @@ object TranslatorsMock {
   def make(abbyy: Translator, yandex: Translator): Translators.Service =
     new Translators.Service {
       override val abbyyTranslator  = abbyy
-      override val yandexTranslator = yandex
+//      override val yandexTranslator = yandex
       override val supportedTranslators = Map(
           CommonTranslationFields.abbyy  -> abbyyTranslator,
-          CommonTranslationFields.yandex -> yandexTranslator,
+//          CommonTranslationFields.yandex -> yandexTranslator,
       )
       override val defaultTranslator = abbyyTranslator
     }
