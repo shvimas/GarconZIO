@@ -2,7 +2,7 @@ package dev.shvimas.garcon.database.mongo
 
 import com.mongodb.ConnectionString
 import com.typesafe.scalalogging.StrictLogging
-import dev.shvimas.garcon.{Database, MongoConfig}
+import dev.shvimas.garcon.MongoConfig
 import dev.shvimas.garcon.database.Database
 import dev.shvimas.garcon.database.model._
 import dev.shvimas.garcon.database.mongo.codec.LanguageCodeCodecProvider
@@ -28,37 +28,41 @@ import scala.concurrent.Future
 
 object Mongo {
 
-  val live: ZLayer[Has[MongoConfig], Throwable, Database] = ZLayer.fromServiceM { config: MongoConfig =>
-    ZIO.effect {
-      val connectionString = {
-        val username = config.username
-        val password = config.password
-        val host     = config.host
-        val port     = config.port
-        new ConnectionString(s"mongodb://$username:$password@$host:$port")
+  val live: ZLayer[Has[MongoConfig], Throwable, Has[Database.Service]] = {
+    val instance: RIO[Has[MongoConfig], Database.Service] = ZIO.accessM { hasConfig: Has[MongoConfig] =>
+      ZIO.effect {
+        val config = hasConfig.get
+        val connectionString = {
+          val username = config.username
+          val password = config.password
+          val host     = config.host
+          val port     = config.port
+          new ConnectionString(s"mongodb://$username:$password@$host:$port")
+        }
+
+        val caseClassCodecs: CodecRegistry =
+          fromProviders(
+              classOf[MongoGlobals],
+              classOf[MongoUserData],
+              classOf[MongoCommonTranslation],
+              classOf[MongoLanguageDirection],
+              LanguageCodeCodecProvider
+          )
+
+        val codecRegistry: CodecRegistry =
+          fromRegistries(DEFAULT_CODEC_REGISTRY, caseClassCodecs)
+
+        val clientSettings: MongoClientSettings =
+          MongoClientSettings
+            .builder()
+            .applyConnectionString(connectionString)
+            .codecRegistry(codecRegistry)
+            .build()
+
+        new Instance(MongoClient(clientSettings))
       }
-
-      val caseClassCodecs: CodecRegistry =
-        fromProviders(
-            classOf[MongoGlobals],
-            classOf[MongoUserData],
-            classOf[MongoCommonTranslation],
-            classOf[MongoLanguageDirection],
-            LanguageCodeCodecProvider
-        )
-
-      val codecRegistry: CodecRegistry =
-        fromRegistries(DEFAULT_CODEC_REGISTRY, caseClassCodecs)
-
-      val clientSettings: MongoClientSettings =
-        MongoClientSettings
-          .builder()
-          .applyConnectionString(connectionString)
-          .codecRegistry(codecRegistry)
-          .build()
-
-      new Instance(MongoClient(clientSettings))
     }
+    ZLayer.fromAcquireRelease(instance)(_.close())
   }
 
   private class Instance(client: MongoClient) extends Database.Service with StrictLogging {
@@ -222,6 +226,8 @@ object Mongo {
         )
         .map(_.toCommonTranslation)
         .toOptionTask
+
+    def close(): UIO[Unit] = ZIO.effect(client.close()).orDie
   }
 
   private object Helpers {

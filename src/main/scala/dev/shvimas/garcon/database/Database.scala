@@ -6,7 +6,7 @@ import dev.shvimas.telegram.model.{Chat, Message}
 import dev.shvimas.telegram.Bot
 import dev.shvimas.translate.LanguageDirection
 import org.mongodb.scala.result.{DeleteResult, UpdateResult}
-import zio.Task
+import zio.{Task, UIO}
 
 object Database {
 
@@ -46,5 +46,7 @@ object Database {
     ): Task[Option[UpdateResult]]
 
     def getRandomWord(chatId: Chat.Id, languageDirection: LanguageDirection): Task[Option[CommonTranslation]]
+
+    def close(): UIO[Unit]
   }
 }

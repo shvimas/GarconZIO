@@ -42,8 +42,8 @@ object Main extends App with ZIOLogging {
 
   override def run(args: List[String]): ZIO[ZEnv, Nothing, ExitCode] =
     main
-      .provideLayer(garconLayer)
       .repeat(Schedule.fixed(200.milliseconds))
+      .provideCustomLayer(garconLayer)
       .exitCode
 
   val main: ZIO[GarconEnv, Nothing, Unit] =

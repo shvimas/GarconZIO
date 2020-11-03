@@ -5,7 +5,7 @@ import dev.shvimas.telegram.Bot
 import dev.shvimas.telegram.model.{Chat, Message}
 import dev.shvimas.translate.LanguageDirection
 import org.mongodb.scala.result.{DeleteResult, UpdateResult}
-import zio.Task
+import zio.{Task, ZIO}
 
 object TestDatabase {
   class Stub extends Database.Service {
@@ -50,5 +50,7 @@ object TestDatabase {
     override def getRandomWord(chatId: Chat.Id,
                                languageDirection: LanguageDirection,
     ): Task[Option[CommonTranslation]] = throw new NotImplementedError()
+
+    override def close() = ZIO.succeed(())
   }
 }
